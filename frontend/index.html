@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Skylight Photos</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
+</head>
+<body>
+    <!-- PIN Screen -->
+    <div id="pin-screen" class="screen active">
+        <div class="pin-container">
+            <h1>Skylight Photos</h1>
+            <p>Enter PIN to upload photos & videos</p>
+            <div class="pin-input-group">
+                <input type="password" id="pin-input" inputmode="numeric" pattern="[0-9]*"
+                       placeholder="Enter PIN" maxlength="10" autocomplete="off">
+                <button id="pin-submit" class="btn btn-primary">Go</button>
+            </div>
+            <div id="pin-error" class="error-msg hidden"></div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-screen" class="screen">
+        <header>
+            <h1>Skylight Photos</h1>
+            <button id="logout-btn" class="btn btn-small">Logout</button>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="upload">Upload</button>
+            <button class="tab" data-tab="gallery">Gallery</button>
+        </nav>
+
+        <!-- Upload Tab -->
+        <div id="tab-upload" class="tab-content active">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="drop-icon">+</div>
+                    <p>Tap to select or drag & drop</p>
+                    <p class="drop-hint">Photos & videos up to 500MB</p>
+                </div>
+                <input type="file" id="file-input" multiple
+                       accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,video/x-matroska">
+            </div>
+            <div id="upload-queue" class="upload-queue"></div>
+        </div>
+
+        <!-- Gallery Tab -->
+        <div id="tab-gallery" class="tab-content">
+            <div id="gallery-stats" class="gallery-stats"></div>
+            <div id="gallery-grid" class="gallery-grid"></div>
+            <div id="gallery-empty" class="empty-state hidden">
+                <p>No photos yet. Upload some!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox hidden">
+        <button class="lightbox-close">&times;</button>
+        <div class="lightbox-content"></div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/toast.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/components/upload.js"></script>
+    <script src="/js/components/gallery.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

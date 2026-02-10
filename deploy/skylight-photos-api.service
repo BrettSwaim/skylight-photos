@@ -1,0 +1,16 @@
+[Unit]
+Description=Skylight Photos API
+After=network.target
+
+[Service]
+Type=simple
+User=user
+Group=user
+WorkingDirectory=/opt/skylight-photos
+ExecStart=/opt/skylight-photos/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8007
+Restart=always
+RestartSec=5
+Environment=PYTHONPATH=/opt/skylight-photos
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skylight Photos</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e4e4e7;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+
+        header p {
+            color: #71717a;
+            font-size: 0.9rem;
+        }
+
+        .drop-zone {
+            border: 2px dashed #3f3f46;
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #18181b;
+            margin-bottom: 1.5rem;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: #6366f1;
+            background: #1e1b4b;
+        }
+
+        .drop-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
+        }
+
+        .drop-zone h2 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .drop-zone p {
+            color: #71717a;
+            font-size: 0.85rem;
+        }
+
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            background: #27272a;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .preview-item .remove-btn:hover {
+            background: #ef4444;
+        }
+
+        .preview-item .status-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .preview-item.sending .status-overlay {
+            background: rgba(0,0,0,0.5);
+        }
+
+        .preview-item.sent .status-overlay {
+            background: rgba(34,197,94,0.3);
+        }
+
+        .preview-item.failed .status-overlay {
+            background: rgba(239,68,68,0.3);
+        }
+
+        .caption-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            background: #18181b;
+            color: #e4e4e7;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            outline: none;
+        }
+
+        .caption-input:focus {
+            border-color: #6366f1;
+        }
+
+        .caption-input::placeholder {
+            color: #52525b;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: #fff;
+            flex: 1;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #4f46e5;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #27272a;
+            color: #a1a1aa;
+        }
+
+        .btn-secondary:hover {
+            background: #3f3f46;
+            color: #fff;
+        }
+
+        .status-bar {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .status-bar.success {
+            display: block;
+            background: #052e16;
+            color: #4ade80;
+            border: 1px solid #166534;
+        }
+
+        .status-bar.error {
+            display: block;
+            background: #450a0a;
+            color: #f87171;
+            border: 1px solid #991b1b;
+        }
+
+        .status-bar.sending {
+            display: block;
+            background: #1e1b4b;
+            color: #a5b4fc;
+            border: 1px solid #3730a3;
+        }
+
+        .photo-count {
+            color: #71717a;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 1.5rem 1rem; }
+            .preview-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+            .drop-zone { padding: 2rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Skylight Photos</h1>
+            <p>Drop photos to send to your Skylight frame</p>
+        </header>
+
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-icon">&#128247;</div>
+            <h2>Drop photos here</h2>
+            <p>or click to browse &mdash; JPG, PNG, GIF, HEIC, WebP</p>
+            <input type="file" id="file-input" multiple accept="image/*">
+        </div>
+
+        <div class="preview-grid" id="preview-grid"></div>
+
+        <input type="text" class="caption-input" id="caption" placeholder="Add a caption (optional)" style="display:none">
+
+        <div class="actions" id="actions" style="display:none">
+            <button class="btn btn-secondary" id="clear-btn">Clear</button>
+            <span class="photo-count" id="photo-count"></span>
+            <button class="btn btn-primary" id="send-btn">Send to Skylight</button>
+        </div>
+
+        <div class="status-bar" id="status-bar"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewGrid = document.getElementById('preview-grid');
+        const captionInput = document.getElementById('caption');
+        const actions = document.getElementById('actions');
+        const sendBtn = document.getElementById('send-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const photoCount = document.getElementById('photo-count');
+        const statusBar = document.getElementById('status-bar');
+
+        let selectedFiles = [];
+
+        // Drop zone events
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            addFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', () => {
+            addFiles(fileInput.files);
+            fileInput.value = '';
+        });
+
+        function addFiles(fileList) {
+            for (const file of fileList) {
+                if (!file.type.startsWith('image/')) continue;
+                selectedFiles.push(file);
+            }
+            renderPreviews();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+        }
+
+        function renderPreviews() {
+            // Clear existing previews
+            while (previewGrid.firstChild) {
+                previewGrid.removeChild(previewGrid.firstChild);
+            }
+
+            selectedFiles.forEach((file, i) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.dataset.index = i;
+
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                item.appendChild(img);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.textContent = '\u00d7';
+                removeBtn.addEventListener('click', () => removeFile(i));
+                item.appendChild(removeBtn);
+
+                const overlay = document.createElement('div');
+                overlay.className = 'status-overlay';
+                item.appendChild(overlay);
+
+                previewGrid.appendChild(item);
+            });
+
+            const hasFiles = selectedFiles.length > 0;
+            captionInput.style.display = hasFiles ? 'block' : 'none';
+            actions.style.display = hasFiles ? 'flex' : 'none';
+            photoCount.textContent = selectedFiles.length + ' photo' + (selectedFiles.length === 1 ? '' : 's');
+        }
+
+        clearBtn.addEventListener('click', () => {
+            selectedFiles = [];
+            renderPreviews();
+            statusBar.className = 'status-bar';
+            statusBar.textContent = '';
+        });
+
+        function setItemStatus(el, status, icon) {
+            el.classList.remove('sending', 'sent', 'failed');
+            el.classList.add(status);
+            el.querySelector('.status-overlay').textContent = icon;
+        }
+
+        sendBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            statusBar.className = 'status-bar sending';
+            statusBar.textContent = 'Sending ' + selectedFiles.length + ' photo' + (selectedFiles.length === 1 ? '' : 's') + '...';
+
+            // Mark all as sending
+            document.querySelectorAll('.preview-item').forEach(el => {
+                setItemStatus(el, 'sending', '\u23f3');
+            });
+
+            const formData = new FormData();
+            selectedFiles.forEach(f => formData.append('photos', f));
+            formData.append('caption', captionInput.value);
+
+            try {
+                const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    document.querySelectorAll('.preview-item').forEach((el, i) => {
+                        const isError = data.errors && data.errors.some(e => e.file === selectedFiles[i]?.name);
+                        setItemStatus(el, isError ? 'failed' : 'sent', isError ? '\u274c' : '\u2705');
+                    });
+
+                    statusBar.className = 'status-bar success';
+                    let msg = 'Sent ' + data.sent + ' photo' + (data.sent === 1 ? '' : 's') + ' to Skylight!';
+                    if (data.failed > 0) msg += ' (' + data.failed + ' failed)';
+                    statusBar.textContent = msg;
+
+                    setTimeout(() => {
+                        selectedFiles = [];
+                        renderPreviews();
+                        captionInput.value = '';
+                        statusBar.className = 'status-bar';
+                    }, 3000);
+                } else {
+                    const errMsg = (data.detail && data.detail.errors && data.detail.errors[0] && data.detail.errors[0].error) || 'Upload failed';
+                    throw new Error(errMsg);
+                }
+            } catch (err) {
+                document.querySelectorAll('.preview-item').forEach(el => {
+                    setItemStatus(el, 'failed', '\u274c');
+                });
+                statusBar.className = 'status-bar error';
+                statusBar.textContent = 'Failed: ' + err.message;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send to Skylight';
+            }
+        });
+    </script>
+</body>
+</html>

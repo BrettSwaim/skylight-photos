@@ -1,0 +1,7 @@
+{
+    "pin": "1234",
+    "max_upload_mb": 500,
+    "image_max_width": 2560,
+    "image_max_height": 1440,
+    "jpeg_quality": 85
+}
