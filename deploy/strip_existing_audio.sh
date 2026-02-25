@@ -14,7 +14,7 @@ strip_audio() {
         return
     fi
 
-    tmp="${file}.tmp${file##*.}"
+    tmp="${file%.*}.tmp.${file##*.}"
     ffmpeg -y -i "$file" -c:v copy -an "$tmp" 2>/dev/null
     if [ $? -eq 0 ]; then
         mv "$tmp" "$file"
