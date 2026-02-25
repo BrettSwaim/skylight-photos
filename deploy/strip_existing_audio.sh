@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
 # Strip audio from all existing videos in the uploads directory.
-# Safe to re-run — skips files that already have no audio track.
+# Always runs ffmpeg -an on every video (safe — no-op if no audio present).
 
 UPLOADS_DIR="/opt/skylight-photos/uploads"
 VIDEO_EXTS=("mp4" "mov" "mkv" "webm")
 
 strip_audio() {
     local file="$1"
-    # Check if the file actually has an audio stream
-    has_audio=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of csv=p=0 "$file" 2>/dev/null)
-    if [ -z "$has_audio" ]; then
-        echo "  SKIP (no audio): $file"
-        return
-    fi
-
     tmp="${file%.*}.tmp.${file##*.}"
     ffmpeg -y -i "$file" -c:v copy -an "$tmp" 2>/dev/null
     if [ $? -eq 0 ]; then
