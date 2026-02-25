@@ -1,6 +1,8 @@
 """Upload router — POST /api/upload, DELETE /api/media/{id}."""
 
 import logging
+import subprocess
+import tempfile
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,6 +23,25 @@ JPEG_QUALITY = 85
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic"}
 VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/x-matroska", "video/webm"}
 ALLOWED_TYPES = IMAGE_TYPES | VIDEO_TYPES
+
+
+def _strip_video_audio(content: bytes, dest: Path) -> int:
+    """Write video to dest with audio stripped via ffmpeg. Returns final file size."""
+    with tempfile.NamedTemporaryFile(suffix=dest.suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(tmp_path), "-c:v", "copy", "-an", str(dest)],
+            capture_output=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            logger.warning(f"ffmpeg audio strip failed, saving original: {result.stderr.decode()[-200:]}")
+            dest.write_bytes(content)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    return dest.stat().st_size
 
 
 def _get_store():
@@ -123,8 +144,7 @@ async def upload_media(
         filename = f"{uid}{ext}"
         filepath = uploads / filename
 
-        with open(filepath, "wb") as f:
-            f.write(content)
+        size_bytes = _strip_video_audio(content, filepath)
 
     item = store.add(
         filename=filename,
