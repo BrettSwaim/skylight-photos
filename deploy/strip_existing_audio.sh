@@ -8,7 +8,7 @@ VIDEO_EXTS=("mp4" "mov" "mkv" "webm")
 strip_audio() {
     local file="$1"
     tmp="${file%.*}.tmp.${file##*.}"
-    ffmpeg -y -i "$file" -c:v copy -an "$tmp" 2>/dev/null
+    ffmpeg -y -i "$file" -c:v copy -an "$tmp" 2>/dev/null </dev/null
     if [ $? -eq 0 ]; then
         mv "$tmp" "$file"
         echo "  STRIPPED: $file"
