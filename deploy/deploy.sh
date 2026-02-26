@@ -7,6 +7,10 @@ VENV_DIR="$APP_DIR/venv"
 
 echo "=== Skylight Photos Deployment ==="
 
+# Pull latest code from git
+echo "Pulling latest code..."
+git -C "$(dirname "$0")/.." pull
+
 # Create app directory
 sudo mkdir -p "$APP_DIR"
 sudo chown user:user "$APP_DIR"
