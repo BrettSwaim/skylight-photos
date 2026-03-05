@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh webserver:*)",
+      "mcp__plugin_serena_serena__list_dir",
+      "WebSearch",
+      "WebFetch(domain:khevans.com)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(grep:*)",
+      "Bash(git:*)",
+      "Bash(scp:*)"
+    ]
+  }
+}
