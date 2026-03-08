@@ -18,12 +18,15 @@ app = FastAPI(
     title="Skylight Photos",
     description="Photo/video upload service for Skylight MAX digital frame",
     version="1.0.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 # Configure CORS (APK needs this)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://photos.2azone.com"],  # APK doesn't use CORS (native HTTP)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
