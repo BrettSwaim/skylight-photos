@@ -7,6 +7,7 @@ Type=simple
 User=user
 Group=user
 WorkingDirectory=/opt/skylight-photos
+ExecStartPre=/bin/bash -c '/usr/bin/fuser -k 8007/tcp 2>/dev/null || true'
 ExecStart=/opt/skylight-photos/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8007
 Restart=always
 RestartSec=5

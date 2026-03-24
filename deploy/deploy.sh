@@ -51,6 +51,11 @@ sudo cp "$APP_DIR/deploy/nginx-photos.2azone.com.conf" /etc/nginx/sites-availabl
 sudo ln -sf /etc/nginx/sites-available/photos.2azone.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
+# Install health check cron (runs every 5 minutes as root)
+echo "Installing health check cron..."
+sudo chmod +x "$APP_DIR/deploy/healthcheck.sh"
+echo "*/5 * * * * /opt/skylight-photos/deploy/healthcheck.sh" | sudo tee /etc/cron.d/skylight-healthcheck > /dev/null
+
 # SSL certificate
 if [ ! -f /etc/letsencrypt/live/photos.2azone.com/fullchain.pem ]; then
     echo "Getting Let's Encrypt certificate..."
