@@ -1,6 +1,8 @@
 """Google Photos endpoints — OAuth, status, picker, import."""
 
+import html
 import logging
+import threading
 import time
 from typing import Optional
 
@@ -15,6 +17,7 @@ router = APIRouter(prefix="/google", tags=["google"])
 
 # In-memory CSRF state store: {state: expires_at_unix}
 _oauth_states: dict[str, float] = {}
+_states_lock = threading.Lock()
 _STATE_TTL_SECONDS = 600  # 10 minutes
 
 
@@ -37,9 +40,20 @@ def _redirect_uri_for(request: Request) -> str:
 
 def _prune_states():
     now = time.time()
-    expired = [s for s, t in _oauth_states.items() if t < now]
-    for s in expired:
-        _oauth_states.pop(s, None)
+    with _states_lock:
+        expired = [s for s, t in _oauth_states.items() if t < now]
+        for s in expired:
+            _oauth_states.pop(s, None)
+
+
+def _store_state(state: str):
+    with _states_lock:
+        _oauth_states[state] = time.time() + _STATE_TTL_SECONDS
+
+
+def _consume_state(state: str) -> Optional[float]:
+    with _states_lock:
+        return _oauth_states.pop(state, None)
 
 
 @router.get("/status")
@@ -55,7 +69,7 @@ async def oauth_start(request: Request, x_upload_pin: str = Header(...)):
     _prune_states()
     redirect_uri = _redirect_uri_for(request)
     url, state = _get_client().start_oauth(redirect_uri)
-    _oauth_states[state] = time.time() + _STATE_TTL_SECONDS
+    _store_state(state)
     return RedirectResponse(url)
 
 
@@ -68,7 +82,7 @@ async def oauth_callback(request: Request, code: Optional[str] = None, state: Op
         return HTMLResponse(_callback_html(False, "Missing code or state"), status_code=400)
 
     _prune_states()
-    expires = _oauth_states.pop(state, None)
+    expires = _consume_state(state)
     if expires is None or expires < time.time():
         return HTMLResponse(_callback_html(False, "Authorization session expired — please try again"), status_code=400)
 
@@ -82,9 +96,12 @@ def _callback_html(ok: bool, message: str) -> str:
     """Tiny HTML page shown to the user after OAuth completes (or fails)."""
     color = "#0a7" if ok else "#a30"
     title = "Connected" if ok else "Authorization failed"
+    safe_message = html.escape(message)
     return f"""<!DOCTYPE html>
 <html>
-<head><title>{title}</title>
+<head>
+<meta charset="utf-8">
+<title>{title}</title>
 <style>
 body {{ font-family: system-ui; max-width: 480px; margin: 4em auto; padding: 1em; text-align: center; }}
 h1 {{ color: {color}; }}
@@ -93,7 +110,7 @@ button {{ font-size: 1em; padding: 0.5em 1em; cursor: pointer; }}
 </head>
 <body>
 <h1>{title}</h1>
-<p>{message}</p>
+<p>{safe_message}</p>
 <button onclick="window.close()">Close window</button>
 <script>
   // If opened as a popup, the parent will detect closure and refresh status

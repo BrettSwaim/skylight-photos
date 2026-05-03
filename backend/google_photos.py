@@ -4,7 +4,6 @@ import json
 import logging
 import secrets
 import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
@@ -127,11 +126,19 @@ class GooglePhotosClient:
                 timeout=10.0,
             )
             resp.raise_for_status()
-            email = resp.json().get("email", "").lower().strip()
+            data = resp.json()
         except Exception as e:
             logger.error(f"Userinfo lookup failed: {e}")
             return False, "Could not verify Google account"
 
+        if not data.get("email_verified", False):
+            return False, "Google account email is not verified"
+        email = data.get("email", "").lower().strip()
+        if not email:
+            return False, "Google did not return an email"
+        if not self.owner_email:
+            logger.error("google_owner_email is not configured; refusing to authorize")
+            return False, "Server is not configured with an owner email"
         if email != self.owner_email:
             logger.warning(f"OAuth attempt by non-owner: {email}")
             return False, "This app is owned by someone else"
