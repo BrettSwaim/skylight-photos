@@ -21,7 +21,7 @@ class GooglePhotosClient:
         self.client_id = client_id
         self.client_secret = client_secret
         self.owner_email = owner_email.lower().strip()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._token: Optional[dict] = None
         self._load()
 
