@@ -3,5 +3,8 @@
     "max_upload_mb": 500,
     "image_max_width": 2560,
     "image_max_height": 1440,
-    "jpeg_quality": 85
+    "jpeg_quality": 85,
+    "google_owner_email": "you@example.com",
+    "google_client_id": "REPLACE_WITH_CLIENT_ID.apps.googleusercontent.com",
+    "google_client_secret": "REPLACE_WITH_CLIENT_SECRET"
 }

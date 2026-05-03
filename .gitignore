@@ -4,6 +4,7 @@ __pycache__/
 venv/
 uploads/
 config/settings.json
+config/google_token.json
 *.egg-info/
 .idea/
 .vscode/
