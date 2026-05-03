@@ -1,5 +1,6 @@
 """Upload router — POST /api/upload, DELETE /api/media/{id}."""
 
+import hashlib
 import logging
 import subprocess
 import tempfile
@@ -87,6 +88,16 @@ async def upload_media(
 
     uploads = _get_uploads_dir()
     store = _get_store()
+
+    # Hash raw upload bytes (before re-encoding) to detect re-uploads of the same file
+    content_hash = hashlib.sha256(content).hexdigest()
+    existing = store.find_by_hash(content_hash)
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Already uploaded as '{existing['original_name']}'",
+        )
+
     uid = uuid4().hex[:12]
 
     width = height = None
@@ -154,6 +165,7 @@ async def upload_media(
         height=height,
         size_bytes=size_bytes,
         duration=duration,
+        content_sha256=content_hash,
     )
 
     logger.info(f"Uploaded {media_type}: {file.filename} -> {filename}")

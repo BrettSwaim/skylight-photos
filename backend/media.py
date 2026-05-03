@@ -34,7 +34,8 @@ class MediaStore:
 
     def add(self, filename: str, original_name: str, media_type: str,
             width: Optional[int] = None, height: Optional[int] = None,
-            size_bytes: int = 0, duration: Optional[float] = None) -> dict:
+            size_bytes: int = 0, duration: Optional[float] = None,
+            content_sha256: Optional[str] = None) -> dict:
         """Add a media item and return its metadata."""
         item = {
             "id": uuid4().hex[:12],
@@ -45,12 +46,21 @@ class MediaStore:
             "height": height,
             "size_bytes": size_bytes,
             "duration": duration,
+            "content_sha256": content_sha256,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
         }
         with self._lock:
             self._media.append(item)
             self._save()
         return item
+
+    def find_by_hash(self, content_sha256: str) -> Optional[dict]:
+        """Return the first item matching this content hash, if any."""
+        with self._lock:
+            for item in self._media:
+                if item.get("content_sha256") == content_sha256:
+                    return item
+        return None
 
     def list_all(self) -> list[dict]:
         """Return all media items."""
