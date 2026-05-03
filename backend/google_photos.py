@@ -2,10 +2,15 @@
 
 import json
 import logging
+import secrets
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
+
+import httpx
+from google_auth_oauthlib.flow import Flow
 
 logger = logging.getLogger(__name__)
 
@@ -74,3 +79,75 @@ class GooglePhotosClient:
             self._token = None
             if self.token_path.exists():
                 self.token_path.unlink()
+
+    def _build_flow(self, redirect_uri: str) -> Flow:
+        """Construct a google_auth_oauthlib Flow for this client's credentials."""
+        return Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [redirect_uri],
+                }
+            },
+            scopes=[PICKER_SCOPE],
+            redirect_uri=redirect_uri,
+        )
+
+    def start_oauth(self, redirect_uri: str) -> Tuple[str, str]:
+        """Generate an OAuth URL and CSRF state. Returns (url, state)."""
+        flow = self._build_flow(redirect_uri)
+        state = secrets.token_urlsafe(32)
+        url, _ = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+            state=state,
+        )
+        return url, state
+
+    def complete_oauth(self, code: str, redirect_uri: str) -> Tuple[bool, str]:
+        """Exchange code for tokens, validate owner email, persist. Returns (ok, message)."""
+        flow = self._build_flow(redirect_uri)
+        try:
+            flow.fetch_token(code=code)
+        except Exception as e:
+            logger.error(f"Token exchange failed: {e}")
+            return False, "Failed to exchange authorization code"
+
+        creds = flow.credentials
+
+        # Verify the owner's identity by reading userinfo
+        try:
+            resp = httpx.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {creds.token}"},
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            email = resp.json().get("email", "").lower().strip()
+        except Exception as e:
+            logger.error(f"Userinfo lookup failed: {e}")
+            return False, "Could not verify Google account"
+
+        if email != self.owner_email:
+            logger.warning(f"OAuth attempt by non-owner: {email}")
+            return False, "This app is owned by someone else"
+
+        if not creds.refresh_token:
+            return False, "No refresh token returned by Google (try revoking access at myaccount.google.com and retry)"
+
+        with self._lock:
+            self._token = {
+                "refresh_token": creds.refresh_token,
+                "access_token": creds.token,
+                "access_token_expires_at": creds.expiry.replace(tzinfo=timezone.utc).isoformat() if creds.expiry else None,
+                "owner_email": email,
+                "connected_at": datetime.now(timezone.utc).isoformat(),
+                "refresh_failed": False,
+            }
+            self._save()
+        logger.info(f"OAuth completed for {email}")
+        return True, "Connected"
