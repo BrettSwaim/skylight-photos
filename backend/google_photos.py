@@ -2,14 +2,19 @@
 
 import json
 import logging
+import os
 import secrets
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
 
-import httpx
-from google_auth_oauthlib.flow import Flow
+# Google's token endpoint normalizes scope strings (e.g. returns "email" alongside the
+# requested "userinfo.email"). Without this, oauthlib raises a scope-mismatch exception.
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+
+import httpx  # noqa: E402
+from google_auth_oauthlib.flow import Flow  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
