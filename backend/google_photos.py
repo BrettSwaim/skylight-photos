@@ -300,3 +300,38 @@ class GooglePhotosClient:
         except Exception as e:
             logger.warning(f"Picker session delete failed: {e}")
             return False
+
+    def list_session_media_items(self, session_id: str) -> list[dict]:
+        """Return all picked media items for a session, paginating as needed."""
+        items: list[dict] = []
+        page_token: Optional[str] = None
+        while True:
+            params: dict = {"sessionId": session_id, "pageSize": 100}
+            if page_token:
+                params["pageToken"] = page_token
+            resp = httpx.get(
+                f"{self._PICKER_BASE}/mediaItems",
+                headers=self._picker_headers(),
+                params=params,
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            items.extend(data.get("mediaItems", []))
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+        return items
+
+    def download_media_item(self, base_url: str) -> bytes:
+        """Download original-resolution bytes for a Picker mediaItem."""
+        # The "=d" suffix is the Picker convention for original bytes
+        url = base_url + ("=d" if "=" not in base_url.rsplit("/", 1)[-1] else "")
+        resp = httpx.get(
+            url,
+            headers=self._picker_headers(),
+            timeout=120.0,
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+        return resp.content

@@ -191,3 +191,78 @@ async def delete_picker_session(session_id: str, x_upload_pin: str = Header(...)
     _verify_pin(x_upload_pin)
     deleted = _get_client().delete_picker_session(session_id)
     return {"status": "ok", "deleted": deleted}
+
+
+@router.post("/picker/session/{session_id}/import")
+async def import_picked_media(session_id: str, x_upload_pin: str = Header(...)):
+    """PIN-gated. Lists picked items, downloads each, ingests via the shared pipeline."""
+    _verify_pin(x_upload_pin)
+    from backend.ingest import ingest_bytes
+    from backend.main import media_store, uploads_dir
+
+    client = _get_client()
+
+    try:
+        items = client.list_session_media_items(session_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"List picked items failed for session {session_id}: {e}")
+        raise HTTPException(status_code=502, detail="Could not retrieve picked items")
+
+    imported: list[dict] = []
+    duplicates: list[dict] = []
+    failed: list[dict] = []
+
+    for picker_item in items:
+        media_file = picker_item.get("mediaFile") or {}
+        google_id = picker_item.get("id", "")
+        base_url = media_file.get("baseUrl", "")
+        mime_type = media_file.get("mimeType", "")
+        filename = media_file.get("filename") or media_file.get("mediaFileMetadata", {}).get("filename") or "from-google-photos"
+
+        if not base_url:
+            failed.append({"google_id": google_id, "filename": filename, "reason": "no baseUrl"})
+            continue
+
+        try:
+            content = client.download_media_item(base_url)
+        except Exception as e:
+            logger.warning(f"Download failed for {google_id}: {e}")
+            failed.append({"google_id": google_id, "filename": filename, "reason": f"download error: {e}"})
+            continue
+
+        try:
+            status, item = ingest_bytes(
+                content=content,
+                content_type=mime_type,
+                original_name=filename,
+                uploads_dir=uploads_dir,
+                store=media_store,
+            )
+        except HTTPException as e:
+            failed.append({"google_id": google_id, "filename": filename, "reason": e.detail})
+            continue
+        except Exception as e:
+            logger.warning(f"Ingest failed for {google_id}: {e}")
+            failed.append({"google_id": google_id, "filename": filename, "reason": f"processing error: {e}"})
+            continue
+
+        if status == "duplicate":
+            duplicates.append({"google_id": google_id, "filename": filename, "existing_id": item["id"]})
+        else:
+            imported.append(item)
+
+    # Best-effort session cleanup
+    client.delete_picker_session(session_id)
+
+    return {
+        "imported": imported,
+        "duplicates": duplicates,
+        "failed": failed,
+        "summary": {
+            "imported": len(imported),
+            "duplicates": len(duplicates),
+            "failed": len(failed),
+        },
+    }
