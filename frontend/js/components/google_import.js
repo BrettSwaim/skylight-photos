@@ -85,16 +85,10 @@ const GoogleImport = {
         this.statusEl.textContent = 'Waiting for selection in Google Photos...';
 
         const outcome = await this.pollUntilReady(session.session_id, popup);
-        if (outcome === 'closed') {
-            this.statusEl.textContent = '';
-            this.statusEl.classList.add('hidden');
-            Toast.error('Picker closed before selection');
-            return;
-        }
         if (outcome !== 'ready') {
             this.statusEl.textContent = '';
             this.statusEl.classList.add('hidden');
-            Toast.error('Picker session expired or timed out');
+            Toast.error('Picker session expired or timed out — make sure you tap Done in the Google Photos picker');
             return;
         }
 
@@ -119,16 +113,14 @@ const GoogleImport = {
         }
     },
 
-    async pollUntilReady(sessionId, popup) {
-        // Returns 'ready' | 'expired' | 'closed' | 'timeout'.
-        // The picker auto-closes itself after the user clicks Done, but Google's
-        // mediaItemsSet=true sometimes lags the close by a few seconds. So when we
-        // see popup.closed during a 'pending' poll, we keep polling for a short
-        // grace window before declaring the user abandoned. Only after that grace
-        // expires with no 'ready' do we treat the closed popup as user cancellation.
-        const CLOSED_GRACE_MS = 15000;
+    async pollUntilReady(sessionId, _popup) {
+        // Returns 'ready' | 'expired' | 'timeout'.
+        // We deliberately do NOT use popup.closed as an early-bailout signal —
+        // popup state is unreliable across browsers (in-app browsers, tabs-as-popups,
+        // some PWAs report closed=true while the picker is still functioning).
+        // We rely on Google's session state instead: 'ready' (user clicked Done),
+        // 'expired' (Google's session timed out), or our own 5-min wall clock.
         const start = Date.now();
-        let popupClosedAt = null;
         while (Date.now() - start < this.POLL_TIMEOUT_MS) {
             try {
                 const result = await API.googlePollPickerSession(sessionId);
@@ -136,10 +128,6 @@ const GoogleImport = {
                 if (result.status === 'expired') return 'expired';
             } catch (err) {
                 console.warn('poll error', err);
-            }
-            if (popup && popup.closed && Date.now() - start > 2000) {
-                if (popupClosedAt === null) popupClosedAt = Date.now();
-                if (Date.now() - popupClosedAt > CLOSED_GRACE_MS) return 'closed';
             }
             await new Promise(r => setTimeout(r, this.POLL_INTERVAL_MS));
         }
