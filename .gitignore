@@ -8,3 +8,4 @@ config/google_token.json
 *.egg-info/
 .idea/
 .vscode/
+.playwright-mcp/
