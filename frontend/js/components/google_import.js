@@ -11,8 +11,10 @@ const GoogleImport = {
         this.statusEl = document.getElementById('google-import-status');
         this.btn.addEventListener('click', () => this.onClick());
 
-        // Listen for the OAuth callback page posting back via window.opener
+        // Listen for the OAuth callback page posting back via window.opener.
+        // Origin-check rejects messages from any cross-origin iframe/popup/extension.
         window.addEventListener('message', (e) => {
+            if (e.origin !== window.location.origin) return;
             if (e.data && e.data.type === 'google-oauth') {
                 this.refreshState();
             }
@@ -82,8 +84,14 @@ const GoogleImport = {
         }
         this.statusEl.textContent = 'Waiting for selection in Google Photos...';
 
-        const ready = await this.pollUntilReady(session.session_id);
-        if (!ready) {
+        const outcome = await this.pollUntilReady(session.session_id, popup);
+        if (outcome === 'closed') {
+            this.statusEl.textContent = '';
+            this.statusEl.classList.add('hidden');
+            Toast.error('Picker closed before selection');
+            return;
+        }
+        if (outcome !== 'ready') {
             this.statusEl.textContent = '';
             this.statusEl.classList.add('hidden');
             Toast.error('Picker session expired or timed out');
@@ -111,18 +119,22 @@ const GoogleImport = {
         }
     },
 
-    async pollUntilReady(sessionId) {
+    async pollUntilReady(sessionId, popup) {
+        // Returns 'ready' | 'expired' | 'closed' | 'timeout'.
+        // 'closed' = the user dismissed the picker window without selecting.
+        // The 2s grace skips a transient `closed=true` some browsers report during open().
         const start = Date.now();
         while (Date.now() - start < this.POLL_TIMEOUT_MS) {
             try {
                 const result = await API.googlePollPickerSession(sessionId);
-                if (result.status === 'ready') return true;
-                if (result.status === 'expired') return false;
+                if (result.status === 'ready') return 'ready';
+                if (result.status === 'expired') return 'expired';
             } catch (err) {
                 console.warn('poll error', err);
             }
+            if (popup && popup.closed && Date.now() - start > 2000) return 'closed';
             await new Promise(r => setTimeout(r, this.POLL_INTERVAL_MS));
         }
-        return false;
+        return 'timeout';
     },
 };
