@@ -121,9 +121,14 @@ const GoogleImport = {
 
     async pollUntilReady(sessionId, popup) {
         // Returns 'ready' | 'expired' | 'closed' | 'timeout'.
-        // 'closed' = the user dismissed the picker window without selecting.
-        // The 2s grace skips a transient `closed=true` some browsers report during open().
+        // The picker auto-closes itself after the user clicks Done, but Google's
+        // mediaItemsSet=true sometimes lags the close by a few seconds. So when we
+        // see popup.closed during a 'pending' poll, we keep polling for a short
+        // grace window before declaring the user abandoned. Only after that grace
+        // expires with no 'ready' do we treat the closed popup as user cancellation.
+        const CLOSED_GRACE_MS = 15000;
         const start = Date.now();
+        let popupClosedAt = null;
         while (Date.now() - start < this.POLL_TIMEOUT_MS) {
             try {
                 const result = await API.googlePollPickerSession(sessionId);
@@ -132,7 +137,10 @@ const GoogleImport = {
             } catch (err) {
                 console.warn('poll error', err);
             }
-            if (popup && popup.closed && Date.now() - start > 2000) return 'closed';
+            if (popup && popup.closed && Date.now() - start > 2000) {
+                if (popupClosedAt === null) popupClosedAt = Date.now();
+                if (Date.now() - popupClosedAt > CLOSED_GRACE_MS) return 'closed';
+            }
             await new Promise(r => setTimeout(r, this.POLL_INTERVAL_MS));
         }
         return 'timeout';
