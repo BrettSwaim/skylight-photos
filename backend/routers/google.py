@@ -194,8 +194,13 @@ async def delete_picker_session(session_id: str, x_upload_pin: str = Header(...)
 
 
 @router.post("/picker/session/{session_id}/import")
-async def import_picked_media(session_id: str, x_upload_pin: str = Header(...)):
-    """PIN-gated. Lists picked items, downloads each, ingests via the shared pipeline."""
+def import_picked_media(session_id: str, x_upload_pin: str = Header(...)):
+    """PIN-gated. Lists picked items, downloads each, ingests via the shared pipeline.
+
+    Synchronous on purpose: the body uses blocking httpx + Pillow + ffmpeg and can run for
+    minutes. Declaring this as ``def`` lets FastAPI dispatch it on the threadpool so the
+    event loop stays responsive for status polls and gallery loads during a batch import.
+    """
     _verify_pin(x_upload_pin)
     from backend.ingest import ingest_bytes
     from backend.main import media_store, uploads_dir
