@@ -54,8 +54,8 @@ def _strip_video_audio(content: bytes, dest: Path) -> int:
 
 def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int]:
     """Process and save an image. Returns (width, height, bytes_on_disk)."""
-    img = Image.open(io.BytesIO(content))
-    img = img.convert("RGB") if img.mode != "RGB" else img
+    with Image.open(io.BytesIO(content)) as src:
+        img = src.convert("RGB") if src.mode != "RGB" else src.copy()
 
     try:
         exif = img._getexif()
@@ -78,6 +78,7 @@ def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int]:
         width, height = img.size
 
     img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    img.close()
     return width, height, dest.stat().st_size
 
 
@@ -121,13 +122,19 @@ def ingest_bytes(
             width, height, size_bytes = _process_image(content, filepath)
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
+            filepath.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Failed to process image")
     else:
         media_type = "video"
         ext = VIDEO_EXT_MAP.get(content_type, ".mp4")
         filename = f"{uid}{ext}"
         filepath = uploads_dir / filename
-        size_bytes = _strip_video_audio(content, filepath)
+        try:
+            size_bytes = _strip_video_audio(content, filepath)
+        except Exception as e:
+            logger.error(f"Video processing failed: {e}")
+            filepath.unlink(missing_ok=True)
+            raise HTTPException(status_code=400, detail="Failed to process video")
 
     item = store.add(
         filename=filename,
