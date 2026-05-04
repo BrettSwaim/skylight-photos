@@ -129,8 +129,28 @@ const GoogleImport = {
             } catch (err) {
                 console.warn('poll error', err);
             }
-            await new Promise(r => setTimeout(r, this.POLL_INTERVAL_MS));
+            // Sleep POLL_INTERVAL_MS, but wake up early if the tab becomes visible.
+            // Browsers throttle setTimeout in backgrounded tabs (often to 1Hz or worse,
+            // can stall for minutes). Without this, the loop hangs while the user is in
+            // the picker tab, never sees mediaItemsSet=true after they click Done.
+            await this._sleepUntilVisibleOr(this.POLL_INTERVAL_MS);
         }
         return 'timeout';
+    },
+
+    _sleepUntilVisibleOr(ms) {
+        return new Promise(resolve => {
+            let done = false;
+            const finish = () => {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                document.removeEventListener('visibilitychange', onVis);
+                resolve();
+            };
+            const onVis = () => { if (!document.hidden) finish(); };
+            const timer = setTimeout(finish, ms);
+            document.addEventListener('visibilitychange', onVis);
+        });
     },
 };
