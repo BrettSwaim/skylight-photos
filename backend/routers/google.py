@@ -129,6 +129,16 @@ async def disconnect(x_upload_pin: str = Header(...)):
     return {"status": "ok", "revoked_at_google": revoked}
 
 
+def _parse_poll_interval(raw, default: int = 3) -> int:
+    """Parse Google's pollInterval (e.g. '3s', '3.5s'). Falls back to default on anything weird."""
+    if not raw:
+        return default
+    try:
+        return max(1, int(float(str(raw).rstrip("s"))))
+    except (ValueError, TypeError):
+        return default
+
+
 @router.post("/picker/session")
 async def create_picker_session(x_upload_pin: str = Header(...)):
     """PIN-gated. Creates a Google Picker session."""
@@ -140,10 +150,19 @@ async def create_picker_session(x_upload_pin: str = Header(...)):
     except Exception as e:
         logger.error(f"Picker session create failed: {e}")
         raise HTTPException(status_code=502, detail="Could not create Google Picker session")
+
+    session_id = session.get("id")
+    picker_uri = session.get("pickerUri")
+    if not session_id or not picker_uri:
+        logger.error(f"Picker session response missing fields: {list(session.keys())}")
+        raise HTTPException(status_code=502, detail="Unexpected Google Picker response")
+
     return {
-        "session_id": session["id"],
-        "picker_uri": session["pickerUri"],
-        "polling_interval_seconds": int(session.get("pollingConfig", {}).get("pollInterval", "3s").rstrip("s")) or 3,
+        "session_id": session_id,
+        "picker_uri": picker_uri,
+        "polling_interval_seconds": _parse_poll_interval(
+            session.get("pollingConfig", {}).get("pollInterval")
+        ),
     }
 
 
