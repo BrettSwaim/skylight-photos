@@ -127,3 +127,48 @@ async def disconnect(x_upload_pin: str = Header(...)):
     _verify_pin(x_upload_pin)
     revoked = _get_client().disconnect()
     return {"status": "ok", "revoked_at_google": revoked}
+
+
+@router.post("/picker/session")
+async def create_picker_session(x_upload_pin: str = Header(...)):
+    """PIN-gated. Creates a Google Picker session."""
+    _verify_pin(x_upload_pin)
+    try:
+        session = _get_client().create_picker_session()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Picker session create failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not create Google Picker session")
+    return {
+        "session_id": session["id"],
+        "picker_uri": session["pickerUri"],
+        "polling_interval_seconds": int(session.get("pollingConfig", {}).get("pollInterval", "3s").rstrip("s")) or 3,
+    }
+
+
+@router.get("/picker/session/{session_id}")
+async def get_picker_session(session_id: str, x_upload_pin: str = Header(...)):
+    """PIN-gated. Returns picker session state: pending, ready, or expired."""
+    _verify_pin(x_upload_pin)
+    try:
+        session = _get_client().get_picker_session(session_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Picker session poll failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not poll Google Picker session")
+
+    if session.get("expired"):
+        return {"status": "expired"}
+    if session.get("mediaItemsSet"):
+        return {"status": "ready"}
+    return {"status": "pending"}
+
+
+@router.delete("/picker/session/{session_id}")
+async def delete_picker_session(session_id: str, x_upload_pin: str = Header(...)):
+    """PIN-gated. Deletes a picker session at Google."""
+    _verify_pin(x_upload_pin)
+    deleted = _get_client().delete_picker_session(session_id)
+    return {"status": "ok", "deleted": deleted}

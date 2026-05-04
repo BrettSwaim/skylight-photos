@@ -257,3 +257,46 @@ class GooglePhotosClient:
 
         self.clear_token()
         return revoked
+
+    _PICKER_BASE = "https://photospicker.googleapis.com/v1"
+
+    def _picker_headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.get_access_token()}"}
+
+    def create_picker_session(self) -> dict:
+        """Create a picker session. Returns the session dict from Google."""
+        resp = httpx.post(
+            f"{self._PICKER_BASE}/sessions",
+            headers=self._picker_headers(),
+            json={},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Google returns: {id, pickerUri, pollingConfig, mediaItemsSet, expireTime, ...}
+        return data
+
+    def get_picker_session(self, session_id: str) -> dict:
+        """Get current state of a picker session."""
+        resp = httpx.get(
+            f"{self._PICKER_BASE}/sessions/{session_id}",
+            headers=self._picker_headers(),
+            timeout=10.0,
+        )
+        if resp.status_code == 404:
+            return {"id": session_id, "expired": True}
+        resp.raise_for_status()
+        return resp.json()
+
+    def delete_picker_session(self, session_id: str) -> bool:
+        """Delete a picker session. Returns True on success."""
+        try:
+            resp = httpx.delete(
+                f"{self._PICKER_BASE}/sessions/{session_id}",
+                headers=self._picker_headers(),
+                timeout=10.0,
+            )
+            return resp.status_code in (200, 204, 404)
+        except Exception as e:
+            logger.warning(f"Picker session delete failed: {e}")
+            return False
