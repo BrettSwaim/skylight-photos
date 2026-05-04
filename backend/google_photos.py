@@ -215,12 +215,20 @@ class GooglePhotosClient:
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as e:
-                logger.error(f"Refresh failed: {e}")
+                # Log type+repr without the exception's str(), since some httpx versions
+                # include the request body (containing the refresh_token) in HTTPStatusError.
+                logger.error(f"Refresh failed: {type(e).__name__}")
                 self._token["refresh_failed"] = True
                 self._save()
                 raise HTTPException(status_code=401, detail="Google authorization expired, please reconnect")
 
-            new_access = data["access_token"]
+            new_access = data.get("access_token")
+            if not new_access:
+                logger.error("Refresh response missing access_token")
+                self._token["refresh_failed"] = True
+                self._save()
+                raise HTTPException(status_code=401, detail="Google authorization expired, please reconnect")
+
             expires_in = data.get("expires_in", 3600)
             new_expires = datetime.now(timezone.utc).timestamp() + expires_in
 
