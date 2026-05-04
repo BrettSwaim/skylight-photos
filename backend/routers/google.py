@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/google", tags=["google"])
 
-# In-memory CSRF state store: {state: expires_at_unix}
-_oauth_states: dict[str, float] = {}
+# In-memory CSRF state store: {state: (expires_at_unix, pkce_code_verifier)}
+_oauth_states: dict[str, tuple[float, str]] = {}
 _states_lock = threading.Lock()
 _STATE_TTL_SECONDS = 600  # 10 minutes
 
@@ -41,17 +41,17 @@ def _redirect_uri_for(request: Request) -> str:
 def _prune_states():
     now = time.time()
     with _states_lock:
-        expired = [s for s, t in _oauth_states.items() if t < now]
+        expired = [s for s, (exp, _v) in _oauth_states.items() if exp < now]
         for s in expired:
             _oauth_states.pop(s, None)
 
 
-def _store_state(state: str):
+def _store_state(state: str, code_verifier: str):
     with _states_lock:
-        _oauth_states[state] = time.time() + _STATE_TTL_SECONDS
+        _oauth_states[state] = (time.time() + _STATE_TTL_SECONDS, code_verifier)
 
 
-def _consume_state(state: str) -> Optional[float]:
+def _consume_state(state: str) -> Optional[tuple[float, str]]:
     with _states_lock:
         return _oauth_states.pop(state, None)
 
@@ -68,8 +68,8 @@ async def oauth_start(request: Request, x_upload_pin: str = Header(...)):
     _verify_pin(x_upload_pin)
     _prune_states()
     redirect_uri = _redirect_uri_for(request)
-    url, state = _get_client().start_oauth(redirect_uri)
-    _store_state(state)
+    url, state, code_verifier = _get_client().start_oauth(redirect_uri)
+    _store_state(state, code_verifier)
     return RedirectResponse(url)
 
 
@@ -82,12 +82,13 @@ async def oauth_callback(request: Request, code: Optional[str] = None, state: Op
         return HTMLResponse(_callback_html(False, "Missing code or state"), status_code=400)
 
     _prune_states()
-    expires = _consume_state(state)
-    if expires is None or expires < time.time():
+    entry = _consume_state(state)
+    if entry is None or entry[0] < time.time():
         return HTMLResponse(_callback_html(False, "Authorization session expired — please try again"), status_code=400)
+    _expires, code_verifier = entry
 
     redirect_uri = _redirect_uri_for(request)
-    ok, message = _get_client().complete_oauth(code, redirect_uri)
+    ok, message = _get_client().complete_oauth(code, redirect_uri, code_verifier=code_verifier)
     status_code = 200 if ok else 403
     return HTMLResponse(_callback_html(ok, message), status_code=status_code)
 

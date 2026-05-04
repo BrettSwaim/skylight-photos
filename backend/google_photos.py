@@ -13,8 +13,12 @@ from google_auth_oauthlib.flow import Flow
 
 logger = logging.getLogger(__name__)
 
-# Scope for the Photos Picker API
+# Scopes requested at OAuth time. The picker scope is the actual feature; openid+email
+# are required so the userinfo endpoint will return the user's email for the owner-allowlist check.
 PICKER_SCOPE = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly"
+EMAIL_SCOPE = "https://www.googleapis.com/auth/userinfo.email"
+OPENID_SCOPE = "openid"
+OAUTH_SCOPES = [PICKER_SCOPE, EMAIL_SCOPE, OPENID_SCOPE]
 
 
 class GooglePhotosClient:
@@ -91,12 +95,16 @@ class GooglePhotosClient:
                     "redirect_uris": [redirect_uri],
                 }
             },
-            scopes=[PICKER_SCOPE],
+            scopes=OAUTH_SCOPES,
             redirect_uri=redirect_uri,
         )
 
-    def start_oauth(self, redirect_uri: str) -> Tuple[str, str]:
-        """Generate an OAuth URL and CSRF state. Returns (url, state)."""
+    def start_oauth(self, redirect_uri: str) -> Tuple[str, str, str]:
+        """Generate an OAuth URL, CSRF state, and PKCE verifier. Returns (url, state, code_verifier).
+
+        The code_verifier must be persisted by the caller and passed back to complete_oauth —
+        google_auth_oauthlib auto-enables PKCE, and the verifier lives only on this Flow instance.
+        """
         flow = self._build_flow(redirect_uri)
         state = secrets.token_urlsafe(32)
         url, _ = flow.authorization_url(
@@ -105,11 +113,16 @@ class GooglePhotosClient:
             prompt="consent",
             state=state,
         )
-        return url, state
+        return url, state, flow.code_verifier
 
-    def complete_oauth(self, code: str, redirect_uri: str) -> Tuple[bool, str]:
-        """Exchange code for tokens, validate owner email, persist. Returns (ok, message)."""
+    def complete_oauth(self, code: str, redirect_uri: str, code_verifier: Optional[str] = None) -> Tuple[bool, str]:
+        """Exchange code for tokens, validate owner email, persist. Returns (ok, message).
+
+        code_verifier must match the one returned by the corresponding start_oauth call (PKCE).
+        """
         flow = self._build_flow(redirect_uri)
+        if code_verifier:
+            flow.code_verifier = code_verifier
         try:
             flow.fetch_token(code=code)
         except Exception as e:
