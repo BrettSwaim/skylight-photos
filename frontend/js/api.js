@@ -82,4 +82,42 @@ const API = {
     mediaFileUrl(id) {
         return `${Config.API_BASE}/media/${id}/file`;
     },
+
+    async googleStatus() {
+        const resp = await fetch(`${Config.API_BASE}/google/status`);
+        if (!resp.ok) throw new Error('Status fetch failed');
+        return resp.json();
+    },
+
+    googleOAuthStartUrl() {
+        return `${Config.API_BASE}/google/oauth/start`;
+    },
+
+    async googleCreatePickerSession() {
+        const resp = await fetch(`${Config.API_BASE}/google/picker/session`, {
+            method: 'POST',
+            headers: { 'X-Upload-PIN': this.getPin() },
+        });
+        if (resp.status === 401) throw new Error('Google account not connected');
+        if (resp.status === 403) { this.clearPin(); throw new Error('Invalid PIN'); }
+        if (!resp.ok) throw new Error('Could not create picker session');
+        return resp.json();
+    },
+
+    async googlePollPickerSession(sessionId) {
+        const resp = await fetch(`${Config.API_BASE}/google/picker/session/${sessionId}`, {
+            headers: { 'X-Upload-PIN': this.getPin() },
+        });
+        if (!resp.ok) throw new Error('Poll failed');
+        return resp.json();
+    },
+
+    async googleImportPickerSession(sessionId) {
+        const resp = await fetch(`${Config.API_BASE}/google/picker/session/${sessionId}/import`, {
+            method: 'POST',
+            headers: { 'X-Upload-PIN': this.getPin() },
+        });
+        if (!resp.ok) throw new Error('Import failed');
+        return resp.json();
+    },
 };

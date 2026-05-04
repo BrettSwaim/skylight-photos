@@ -397,3 +397,33 @@ header h1 { font-size: 18px; }
     }
     .tab-content { padding: 24px; }
 }
+
+/* Google Photos import */
+.google-divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5em 0;
+    color: #888;
+    font-size: 0.9em;
+}
+.google-divider::before,
+.google-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #ddd;
+}
+.google-divider span {
+    padding: 0 1em;
+}
+.google-import-btn {
+    width: 100%;
+    margin-bottom: 1em;
+}
+.google-import-status {
+    padding: 0.75em 1em;
+    margin-bottom: 1em;
+    background: #f4f6f8;
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+.google-import-status.hidden { display: none; }

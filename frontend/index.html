@@ -46,6 +46,14 @@
                 <input type="file" id="file-input" multiple
                        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,video/x-matroska">
             </div>
+
+            <div class="google-divider"><span>or</span></div>
+
+            <button id="google-import-btn" class="btn btn-primary google-import-btn" hidden>
+                <span id="google-import-btn-label">Loading...</span>
+            </button>
+            <div id="google-import-status" class="google-import-status hidden"></div>
+
             <div id="upload-queue" class="upload-queue"></div>
         </div>
 
@@ -73,6 +81,7 @@
     <script src="/js/api.js"></script>
     <script src="/js/components/upload.js"></script>
     <script src="/js/components/gallery.js"></script>
+    <script src="/js/components/google_import.js"></script>
     <script src="/js/app.js"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ const App = {
     init() {
         Upload.init();
         Gallery.init();
+        GoogleImport.init();
         this.bindEvents();
 
         // Auto-login if PIN is saved

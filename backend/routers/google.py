@@ -63,9 +63,20 @@ async def google_status():
 
 
 @router.get("/oauth/start")
-async def oauth_start(request: Request, x_upload_pin: str = Header(...)):
-    """PIN-gated. Redirects to Google's consent screen."""
-    _verify_pin(x_upload_pin)
+async def oauth_start(
+    request: Request,
+    pin: Optional[str] = None,
+    x_upload_pin: Optional[str] = Header(None),
+):
+    """PIN-gated. Redirects to Google's consent screen.
+
+    Accepts PIN via X-Upload-PIN header or ?pin= query param (the latter is needed
+    for window.open() popups since browsers can't set headers on navigation).
+    """
+    pin_value = x_upload_pin or pin
+    if not pin_value:
+        raise HTTPException(status_code=403, detail="Missing PIN")
+    _verify_pin(pin_value)
     _prune_states()
     redirect_uri = _redirect_uri_for(request)
     url, state, code_verifier = _get_client().start_oauth(redirect_uri)
