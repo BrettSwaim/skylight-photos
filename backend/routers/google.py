@@ -119,3 +119,11 @@ button {{ font-size: 1em; padding: 0.5em 1em; cursor: pointer; }}
 </script>
 </body>
 </html>"""
+
+
+@router.post("/disconnect")
+async def disconnect(x_upload_pin: str = Header(...)):
+    """PIN-gated. Revokes the refresh token at Google and deletes local token."""
+    _verify_pin(x_upload_pin)
+    revoked = _get_client().disconnect()
+    return {"status": "ok", "revoked_at_google": revoked}

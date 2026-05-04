@@ -176,3 +176,76 @@ class GooglePhotosClient:
             self._save()
         logger.info(f"OAuth completed for {email}")
         return True, "Connected"
+
+    def get_access_token(self) -> str:
+        """Return a valid access token, refreshing if needed.
+
+        Raises HTTPException(401) if no refresh token or refresh fails.
+        """
+        from fastapi import HTTPException
+
+        with self._lock:
+            if not self._token or not self._token.get("refresh_token"):
+                raise HTTPException(status_code=401, detail="Google account not connected")
+
+            access_token = self._token.get("access_token")
+            expires_at = self._token.get("access_token_expires_at")
+
+            # If still valid for >60 seconds, reuse
+            if access_token and expires_at:
+                try:
+                    expires_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                    if (expires_dt - datetime.now(timezone.utc)).total_seconds() > 60:
+                        return access_token
+                except ValueError:
+                    pass
+
+            # Refresh
+            try:
+                resp = httpx.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                        "refresh_token": self._token["refresh_token"],
+                        "grant_type": "refresh_token",
+                    },
+                    timeout=10.0,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as e:
+                logger.error(f"Refresh failed: {e}")
+                self._token["refresh_failed"] = True
+                self._save()
+                raise HTTPException(status_code=401, detail="Google authorization expired, please reconnect")
+
+            new_access = data["access_token"]
+            expires_in = data.get("expires_in", 3600)
+            new_expires = datetime.now(timezone.utc).timestamp() + expires_in
+
+            self._token["access_token"] = new_access
+            self._token["access_token_expires_at"] = datetime.fromtimestamp(new_expires, timezone.utc).isoformat()
+            self._token["refresh_failed"] = False
+            self._save()
+            return new_access
+
+    def disconnect(self) -> bool:
+        """Revoke the refresh token at Google, then delete locally. Returns success."""
+        revoked = False
+        with self._lock:
+            refresh_token = self._token.get("refresh_token") if self._token else None
+
+        if refresh_token:
+            try:
+                resp = httpx.post(
+                    "https://oauth2.googleapis.com/revoke",
+                    params={"token": refresh_token},
+                    timeout=10.0,
+                )
+                revoked = resp.status_code == 200
+            except Exception as e:
+                logger.warning(f"Revoke call failed (continuing with local clear): {e}")
+
+        self.clear_token()
+        return revoked
