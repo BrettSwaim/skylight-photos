@@ -73,7 +73,10 @@ const Upload = {
                 Toast.error(`Too large: ${file.name} (max 500MB)`);
                 continue;
             }
-            const job = { file, item: this.createQueueItem(file), attempts: 0 };
+            // Snapshot the batch location when the files are picked, so
+            // editing the box later doesn't change files already queued
+            const location = document.getElementById('batch-location').value.trim();
+            const job = { file, location, item: this.createQueueItem(file), attempts: 0 };
             this.queue.prepend(job.item.el);
             job.item.status.textContent = 'Queued';
             this.pending.push(job);
@@ -103,7 +106,7 @@ const Upload = {
             await API.uploadFile(file, (pct) => {
                 item.progress.style.width = pct + '%';
                 item.status.textContent = pct + '%';
-            });
+            }, job.location);
             this.markDone(job, 'Done');
             Toast.success(`Uploaded ${file.name}`);
 

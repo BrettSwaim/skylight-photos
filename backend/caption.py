@@ -82,9 +82,16 @@ def reverse_geocode(lat: float, lon: float) -> Optional[str]:
         return None
 
 
-def build_caption(dt: Optional[datetime], latlon: Optional[Tuple[float, float]]) -> Optional[str]:
-    """Compose caption text; None when there is nothing to show."""
-    place = reverse_geocode(*latlon) if latlon else None
+def build_caption(
+    dt: Optional[datetime],
+    latlon: Optional[Tuple[float, float]],
+    place_override: Optional[str] = None,
+) -> Optional[str]:
+    """Compose caption text; None when there is nothing to show.
+
+    place_override (user-supplied location) beats GPS when present.
+    """
+    place = place_override or (reverse_geocode(*latlon) if latlon else None)
     date = dt.strftime("%m/%d/%Y") if dt else None
     if place and date:
         return f"{place} {date}"

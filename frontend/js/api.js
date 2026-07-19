@@ -24,7 +24,7 @@ const API = {
         return data.valid === true;
     },
 
-    async uploadFile(file, onProgress) {
+    async uploadFile(file, onProgress, location) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('POST', `${Config.API_BASE}/upload`);
@@ -61,6 +61,7 @@ const API = {
 
             const formData = new FormData();
             formData.append('file', file);
+            if (location) formData.append('location', location);
             xhr.send(formData);
         });
     },

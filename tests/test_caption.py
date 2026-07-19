@@ -49,6 +49,40 @@ def test_build_caption_none():
     assert build_caption(None, None) is None
 
 
+def test_build_caption_place_override():
+    text = build_caption(datetime(2026, 7, 19), None, place_override="Orvieto, Italy")
+    assert text == "Orvieto, Italy 07/19/2026", text
+    # override wins even when GPS is present
+    text = build_caption(None, (43.0926, 11.7868), place_override="Custom Place")
+    assert text == "Custom Place", text
+
+
+def test_ingest_place_override():
+    import tempfile
+    from backend.ingest import ingest_bytes
+    from backend.media import MediaStore
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        img = Image.new("RGB", (800, 600), (0, 0, 0))
+        exif = Image.Exif()
+        exif[0x0132] = "2026:07:19 14:00:00"
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+
+        store = MediaStore(td)
+        status, item = ingest_bytes(
+            content=buf.getvalue(),
+            content_type="image/jpeg",
+            original_name="o.jpg",
+            uploads_dir=td,
+            store=store,
+            place_override="Orvieto, Italy",
+        )
+        assert status == "added"
+        assert item["caption"] == "Orvieto, Italy 07/19/2026", item
+
+
 def test_draw_caption_changes_pixels():
     img = Image.new("RGB", (800, 600), (0, 0, 0))
     draw_caption(img, "Montepulciano, Italy 06/01/2026")

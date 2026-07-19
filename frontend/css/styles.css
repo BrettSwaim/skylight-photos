@@ -177,6 +177,22 @@ header h1 { font-size: 18px; }
 .drop-zone p { color: var(--text-dim); }
 .drop-hint { font-size: 13px; margin-top: 4px; }
 
+.batch-location {
+    display: block;
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+}
+
+.batch-location:focus { border-color: var(--primary); }
+.batch-location::placeholder { color: var(--text-dim); }
+
 .browse-files-link {
     display: block;
     width: 100%;

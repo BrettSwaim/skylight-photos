@@ -3,7 +3,9 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, File, Header, HTTPException, UploadFile
+from typing import Optional
+
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from backend.config import get_config_value
 from backend.ingest import ingest_bytes
@@ -33,10 +35,13 @@ def _verify_pin(pin: str):
 async def upload_media(
     file: UploadFile = File(...),
     x_upload_pin: str = Header(...),
+    location: Optional[str] = Form(None),
 ):
-    """Upload a photo or video."""
+    """Upload a photo or video. Optional location overrides GPS for the caption."""
     _verify_pin(x_upload_pin)
     content = await file.read()
+
+    place_override = (location or "").strip()[:80] or None
 
     status, item = ingest_bytes(
         content=content,
@@ -44,6 +49,7 @@ async def upload_media(
         original_name=file.filename or "unknown",
         uploads_dir=_get_uploads_dir(),
         store=_get_store(),
+        place_override=place_override,
     )
 
     if status == "duplicate":

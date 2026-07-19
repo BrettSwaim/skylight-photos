@@ -53,7 +53,9 @@ def _strip_video_audio(content: bytes, dest: Path) -> int:
     return dest.stat().st_size
 
 
-def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int, Optional[str]]:
+def _process_image(
+    content: bytes, dest: Path, place_override: Optional[str] = None
+) -> Tuple[int, int, int, Optional[str]]:
     """Process and save an image. Returns (width, height, bytes_on_disk, caption)."""
     with Image.open(io.BytesIO(content)) as src:
         img = src.convert("RGB") if src.mode != "RGB" else src.copy()
@@ -81,7 +83,7 @@ def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int, Optional[
     caption = None
     try:
         dt, latlon = extract_exif_info(content)
-        caption = build_caption(dt, latlon)
+        caption = build_caption(dt, latlon, place_override=place_override)
         if caption:
             draw_caption(img, caption)
     except Exception as e:
@@ -99,6 +101,7 @@ def ingest_bytes(
     original_name: str,
     uploads_dir: Path,
     store: MediaStore,
+    place_override: Optional[str] = None,
 ) -> Tuple[str, dict]:
     """Validate, dedup, process, and store raw upload bytes.
 
@@ -131,7 +134,9 @@ def ingest_bytes(
         filename = f"{uid}.jpg"
         filepath = uploads_dir / filename
         try:
-            width, height, size_bytes, caption = _process_image(content, filepath)
+            width, height, size_bytes, caption = _process_image(
+                content, filepath, place_override=place_override
+            )
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
             filepath.unlink(missing_ok=True)
