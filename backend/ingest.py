@@ -12,6 +12,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from PIL import ExifTags, Image
 
+from backend.caption import build_caption, draw_caption, extract_exif_info
 from backend.media import MediaStore
 
 logger = logging.getLogger(__name__)
@@ -52,8 +53,8 @@ def _strip_video_audio(content: bytes, dest: Path) -> int:
     return dest.stat().st_size
 
 
-def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int]:
-    """Process and save an image. Returns (width, height, bytes_on_disk)."""
+def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int, Optional[str]]:
+    """Process and save an image. Returns (width, height, bytes_on_disk, caption)."""
     with Image.open(io.BytesIO(content)) as src:
         img = src.convert("RGB") if src.mode != "RGB" else src.copy()
 
@@ -77,9 +78,19 @@ def _process_image(content: bytes, dest: Path) -> Tuple[int, int, int]:
         img.thumbnail((MAX_WIDTH, MAX_HEIGHT), Image.LANCZOS)
         width, height = img.size
 
+    caption = None
+    try:
+        dt, latlon = extract_exif_info(content)
+        caption = build_caption(dt, latlon)
+        if caption:
+            draw_caption(img, caption)
+    except Exception as e:
+        logger.warning(f"Captioning failed, saving clean: {e}")
+        caption = None
+
     img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
     img.close()
-    return width, height, dest.stat().st_size
+    return width, height, dest.stat().st_size, caption
 
 
 def ingest_bytes(
@@ -113,13 +124,14 @@ def ingest_bytes(
     width: Optional[int] = None
     height: Optional[int] = None
     duration: Optional[float] = None
+    caption: Optional[str] = None
 
     if content_type in IMAGE_TYPES:
         media_type = "image"
         filename = f"{uid}.jpg"
         filepath = uploads_dir / filename
         try:
-            width, height, size_bytes = _process_image(content, filepath)
+            width, height, size_bytes, caption = _process_image(content, filepath)
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
             filepath.unlink(missing_ok=True)
@@ -145,6 +157,7 @@ def ingest_bytes(
         size_bytes=size_bytes,
         duration=duration,
         content_sha256=content_hash,
+        caption=caption,
     )
     logger.info(f"Ingested {media_type}: {original_name} -> {filename}")
     return "added", item

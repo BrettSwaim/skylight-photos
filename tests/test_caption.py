@@ -57,6 +57,35 @@ def test_draw_caption_changes_pixels():
     assert any(p == (255, 255, 255) for p in px.getdata())
 
 
+def test_ingest_burns_caption():
+    import tempfile
+    from backend.ingest import ingest_bytes
+    from backend.media import MediaStore
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        img = Image.new("RGB", (800, 600), (0, 0, 0))
+        exif = Image.Exif()
+        exif[0x0132] = "2026:06:01 14:00:00"
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+
+        store = MediaStore(td)
+        status, item = ingest_bytes(
+            content=buf.getvalue(),
+            content_type="image/jpeg",
+            original_name="t.jpg",
+            uploads_dir=td,
+            store=store,
+        )
+        assert status == "added"
+        assert item["caption"] == "06/01/2026", item
+        # caption pixels present in saved file
+        with Image.open(td / item["filename"]) as saved:
+            px = saved.crop((0, 500, 400, 600))
+            assert any(p[0] > 240 and p[1] > 240 and p[2] > 240 for p in px.getdata())
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

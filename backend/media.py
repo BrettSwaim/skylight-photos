@@ -35,7 +35,8 @@ class MediaStore:
     def add(self, filename: str, original_name: str, media_type: str,
             width: Optional[int] = None, height: Optional[int] = None,
             size_bytes: int = 0, duration: Optional[float] = None,
-            content_sha256: Optional[str] = None) -> dict:
+            content_sha256: Optional[str] = None,
+            caption: Optional[str] = None) -> dict:
         """Add a media item and return its metadata."""
         item = {
             "id": uuid4().hex[:12],
@@ -47,6 +48,7 @@ class MediaStore:
             "size_bytes": size_bytes,
             "duration": duration,
             "content_sha256": content_sha256,
+            "caption": caption,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
         }
         with self._lock:
