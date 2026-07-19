@@ -9,3 +9,9 @@ config/google_token.json
 .idea/
 .vscode/
 .playwright-mcp/
+config/skylight-android.jks
+config/keystore.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

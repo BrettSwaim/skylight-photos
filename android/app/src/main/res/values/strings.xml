@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Skylight</string>
+    <string name="upload">Upload</string>
+    <string name="upload_n">Upload (%1$d)</string>
+    <string name="uploading_title">Uploading</string>
+    <string name="enter_pin">Enter upload PIN</string>
+    <string name="pin_hint">PIN</string>
+    <string name="change_pin">Change PIN</string>
+    <string name="bad_pin">Invalid PIN</string>
+    <string name="need_permission">Photo access is required to upload</string>
+    <string name="queued">Queued</string>
+    <string name="done">Done</string>
+    <string name="already_uploaded">Already uploaded</string>
+    <string name="retry">Retry</string>
+    <string name="retry_all">Retry all</string>
+    <string name="summary_fmt">%1$d of %2$d uploaded · %3$d failed</string>
+</resources>
