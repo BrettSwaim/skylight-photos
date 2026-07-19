@@ -104,4 +104,21 @@ object Api {
         val m = Regex("\"detail\"\\s*:\\s*\"([^\"]+)\"").find(body)
         return m?.groupValues?.get(1)
     }
+
+    /** original_name of everything already on the server, for grid badges. */
+    fun uploadedNames(): Set<String> {
+        val req = Request.Builder().url("$BASE/media").get().build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptySet()
+            val body = resp.body?.string() ?: return emptySet()
+            val names = HashSet<String>()
+            val arr = org.json.JSONObject(body).optJSONArray("media") ?: return emptySet()
+            for (i in 0 until arr.length()) {
+                arr.optJSONObject(i)?.optString("original_name")?.let {
+                    if (it.isNotEmpty()) names.add(it)
+                }
+            }
+            return names
+        }
+    }
 }

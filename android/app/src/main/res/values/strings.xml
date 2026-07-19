@@ -15,4 +15,5 @@
     <string name="retry">Retry</string>
     <string name="retry_all">Retry all</string>
     <string name="summary_fmt">%1$d of %2$d uploaded · %3$d failed</string>
+    <string name="uploaded_badge">✓ uploaded</string>
 </resources>

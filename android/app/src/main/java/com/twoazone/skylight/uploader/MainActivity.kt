@@ -49,7 +49,11 @@ class MainActivity : AppCompatActivity() {
             uploadBtn.text = if (count > 0) getString(R.string.upload_n, count)
                              else getString(R.string.upload)
         }
-        grid.layoutManager = GridLayoutManager(this, 4)
+        val layout = GridLayoutManager(this, GridAdapter.SPAN_COUNT)
+        layout.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+            override fun getSpanSize(position: Int) = adapter.spanSize(position)
+        }
+        grid.layoutManager = layout
         grid.adapter = adapter
 
         uploadBtn.setOnClickListener {
@@ -160,6 +164,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshUploadedBadges()
+    }
+
+    private fun refreshUploadedBadges() {
+        if (!::adapter.isInitialized) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val names = try { Api.uploadedNames() } catch (_: Exception) { emptySet() }
+            withContext(Dispatchers.Main) { adapter.setUploaded(names) }
+        }
+    }
+
     private fun loadMedia() {
         lifecycleScope.launch(Dispatchers.IO) {
             val items = ArrayList<GridItem>()
@@ -167,6 +184,12 @@ class MainActivity : AppCompatActivity() {
             val projection = arrayOf(
                 MediaStore.Files.FileColumns._ID,
                 MediaStore.Files.FileColumns.MEDIA_TYPE,
+                MediaStore.Files.FileColumns.DISPLAY_NAME,
+                MediaStore.Files.FileColumns.DATE_TAKEN,
+                MediaStore.Files.FileColumns.DATE_ADDED,
+                MediaStore.Files.FileColumns.WIDTH,
+                MediaStore.Files.FileColumns.HEIGHT,
+                MediaStore.Files.FileColumns.ORIENTATION,
             )
             val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (?, ?)"
             val args = arrayOf(
@@ -175,10 +198,17 @@ class MainActivity : AppCompatActivity() {
             )
             contentResolver.query(
                 collection, projection, selection, args,
-                "${MediaStore.Files.FileColumns.DATE_ADDED} DESC",
+                "${MediaStore.Files.FileColumns.DATE_TAKEN} DESC, " +
+                    "${MediaStore.Files.FileColumns.DATE_ADDED} DESC",
             )?.use { c ->
                 val idIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
                 val typeIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MEDIA_TYPE)
+                val nameIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
+                val takenIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_TAKEN)
+                val addedIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)
+                val wIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.WIDTH)
+                val hIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.HEIGHT)
+                val oIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.ORIENTATION)
                 while (c.moveToNext()) {
                     val id = c.getLong(idIdx)
                     val isVideo =
@@ -187,10 +217,38 @@ class MainActivity : AppCompatActivity() {
                         ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
                     else
                         ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-                    items.add(GridItem(uri, isVideo))
+                    val taken = c.getLong(takenIdx)
+                    val date = if (taken > 0) taken else c.getLong(addedIdx) * 1000
+                    // Swap dimensions for 90/270-rotated media so pano
+                    // detection uses display orientation
+                    var w = c.getInt(wIdx)
+                    var h = c.getInt(hIdx)
+                    val orientation = c.getInt(oIdx)
+                    if (orientation == 90 || orientation == 270) {
+                        val t = w; w = h; h = t
+                    }
+                    items.add(GridItem(uri, isVideo, c.getString(nameIdx) ?: "", date, w, h))
                 }
             }
-            withContext(Dispatchers.Main) { adapter.submit(items) }
+
+            // Group by calendar day with header rows
+            val fmt = java.text.SimpleDateFormat("EEE, MMM d, yyyy", java.util.Locale.US)
+            val dayFmt = java.text.SimpleDateFormat("yyyyDDD", java.util.Locale.US)
+            val rows = ArrayList<Row>()
+            var lastDay = ""
+            for (item in items) {
+                val day = dayFmt.format(java.util.Date(item.dateMillis))
+                if (day != lastDay) {
+                    rows.add(Row.Header(fmt.format(java.util.Date(item.dateMillis))))
+                    lastDay = day
+                }
+                rows.add(Row.Media(item))
+            }
+
+            withContext(Dispatchers.Main) {
+                adapter.submit(rows)
+                refreshUploadedBadges()
+            }
         }
     }
 }
