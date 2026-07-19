@@ -177,6 +177,22 @@ header h1 { font-size: 18px; }
 .drop-zone p { color: var(--text-dim); }
 .drop-hint { font-size: 13px; margin-top: 4px; }
 
+.browse-files-link {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--primary);
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.browse-files-link:active { background: var(--surface); }
+
 /* Upload Queue */
 .upload-queue { margin-top: 16px; }
 

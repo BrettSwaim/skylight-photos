@@ -31,6 +31,19 @@ const Upload = {
             }
         });
 
+        // "Browse Files" path: no accept filter, so Android opens the real
+        // file manager (originals with GPS) instead of the photo picker
+        this.browseInput = document.getElementById('file-input-browse');
+        document.getElementById('browse-files-btn').addEventListener('click', () => {
+            this.browseInput.click();
+        });
+        this.browseInput.addEventListener('change', () => {
+            if (this.browseInput.files.length) {
+                this.handleFiles(Array.from(this.browseInput.files));
+                this.browseInput.value = '';
+            }
+        });
+
         // Drag and drop
         this.dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();

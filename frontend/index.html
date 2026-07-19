@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Skylight Photos</title>
-    <link rel="stylesheet" href="/css/styles.css?v=5">
+    <link rel="stylesheet" href="/css/styles.css?v=6">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>">
 </head>
 <body>
@@ -47,6 +47,11 @@
                        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,video/x-matroska">
             </div>
 
+            <input type="file" id="file-input-browse" multiple hidden>
+            <button id="browse-files-btn" class="browse-files-link">
+                📂 Browse Files instead (keeps GPS location for captions)
+            </button>
+
             <div class="google-divider"><span>or</span></div>
 
             <button id="google-import-btn" class="btn btn-primary google-import-btn" hidden>
@@ -79,7 +84,7 @@
     <script src="/js/config.js?v=4"></script>
     <script src="/js/toast.js?v=4"></script>
     <script src="/js/api.js?v=5"></script>
-    <script src="/js/components/upload.js?v=5"></script>
+    <script src="/js/components/upload.js?v=6"></script>
     <script src="/js/components/gallery.js?v=4"></script>
     <script src="/js/components/google_import.js?v=4"></script>
     <script src="/js/app.js?v=4"></script>
