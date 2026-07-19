@@ -39,17 +39,22 @@ const API = {
             xhr.addEventListener('load', () => {
                 if (xhr.status === 200) {
                     resolve(JSON.parse(xhr.responseText));
-                } else if (xhr.status === 403) {
+                    return;
+                }
+                let error;
+                if (xhr.status === 403) {
                     this.clearPin();
-                    reject(new Error('Invalid PIN'));
+                    error = new Error('Invalid PIN');
                 } else {
                     try {
-                        const err = JSON.parse(xhr.responseText);
-                        reject(new Error(err.detail || 'Upload failed'));
+                        const body = JSON.parse(xhr.responseText);
+                        error = new Error(body.detail || 'Upload failed');
                     } catch {
-                        reject(new Error(`Upload failed (${xhr.status})`));
+                        error = new Error(`Upload failed (${xhr.status})`);
                     }
                 }
+                error.status = xhr.status;
+                reject(error);
             });
 
             xhr.addEventListener('error', () => reject(new Error('Network error')));

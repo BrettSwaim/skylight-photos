@@ -236,6 +236,35 @@ header h1 { font-size: 18px; }
 .upload-item-progress-bar.done { background: var(--success); }
 .upload-item-progress-bar.error { background: var(--danger); }
 
+.upload-retry-btn {
+    padding: 2px 10px;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.upload-retry-btn:active { background: var(--primary); color: #fff; }
+
+.upload-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+}
+
+.upload-summary-text {
+    font-size: 14px;
+    color: var(--danger);
+}
+
 /* Gallery */
 .gallery-stats {
     font-size: 13px;
