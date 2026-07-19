@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_main)
+        title = "Skylight v" + packageManager.getPackageInfo(packageName, 0).versionName
         grid = findViewById(R.id.photo_grid)
         uploadBtn = findViewById(R.id.upload_btn)
 
