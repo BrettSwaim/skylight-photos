@@ -32,14 +32,28 @@ def _verify_pin(pin: str):
         raise HTTPException(status_code=403, detail="Invalid PIN")
 
 
+def _parse_pos(pos_x, pos_y):
+    """Two optional form floats → clamped (x, y) tuple in [0,1], or None."""
+    if pos_x is None or pos_y is None:
+        return None
+    try:
+        x = min(1.0, max(0.0, float(pos_x)))
+        y = min(1.0, max(0.0, float(pos_y)))
+        return (x, y)
+    except (TypeError, ValueError):
+        return None
+
+
 @router.post("/upload")
 async def upload_media(
     file: UploadFile = File(...),
     x_upload_pin: str = Header(...),
     location: Optional[str] = Form(None),
     style: Optional[str] = Form(None),
+    pos_x: Optional[float] = Form(None),
+    pos_y: Optional[float] = Form(None),
 ):
-    """Upload a photo or video. Optional location overrides GPS; style picks caption look."""
+    """Upload a photo or video. Optional location overrides GPS; style + pos set the caption."""
     _verify_pin(x_upload_pin)
     content = await file.read()
 
@@ -56,6 +70,7 @@ async def upload_media(
         store=_get_store(),
         place_override=place_override,
         style=chosen_style,
+        pos=_parse_pos(pos_x, pos_y),
     )
 
     if status == "duplicate":
@@ -73,6 +88,8 @@ async def preview_caption(
     x_upload_pin: str = Header(...),
     location: Optional[str] = Form(None),
     style: Optional[str] = Form(None),
+    pos_x: Optional[float] = Form(None),
+    pos_y: Optional[float] = Form(None),
 ):
     """Render a caption preview onto the image and return it. Saves nothing."""
     _verify_pin(x_upload_pin)
@@ -86,7 +103,7 @@ async def preview_caption(
         chosen_style = DEFAULT_STYLE
 
     try:
-        jpeg = render_preview(content, place_override, chosen_style)
+        jpeg = render_preview(content, place_override, chosen_style, _parse_pos(pos_x, pos_y))
     except Exception as e:
         logger.error(f"Preview render failed: {e}")
         raise HTTPException(status_code=400, detail="Could not render preview")

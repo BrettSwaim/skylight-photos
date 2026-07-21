@@ -94,7 +94,12 @@ def _caption_for(content: bytes, place_override: Optional[str]):
     return place, date, text
 
 
-def render_preview(content: bytes, place_override: Optional[str], style: str) -> bytes:
+def render_preview(
+    content: bytes,
+    place_override: Optional[str],
+    style: str,
+    pos: Optional[Tuple[float, float]] = None,
+) -> bytes:
     """Render the exact caption onto a downscaled copy and return JPEG bytes.
 
     Used by the preview endpoint — nothing is persisted.
@@ -104,7 +109,7 @@ def render_preview(content: bytes, place_override: Optional[str], style: str) ->
         img.thumbnail((1280, 1280), Image.LANCZOS)
     place, date, _ = _caption_for(content, place_override)
     if place or date:
-        img = render_caption(img, place, date, style=style)
+        img = render_caption(img, place, date, style=style, pos=pos)
     out = io.BytesIO()
     img.save(out, "JPEG", quality=JPEG_QUALITY)
     return out.getvalue()
@@ -116,6 +121,7 @@ def _process_image(
     master_dest: Path,
     place_override: Optional[str] = None,
     style: str = DEFAULT_STYLE,
+    pos: Optional[Tuple[float, float]] = None,
 ) -> dict:
     """Save clean master + captioned display file.
 
@@ -138,7 +144,7 @@ def _process_image(
     display = master
     if caption:
         try:
-            display = render_caption(master.copy(), place, date, style=style)
+            display = render_caption(master.copy(), place, date, style=style, pos=pos)
         except Exception as e:
             logger.warning(f"Caption render failed, saving clean: {e}")
             display = master
@@ -162,6 +168,7 @@ def restyle_display(
     place: Optional[str],
     date: Optional[str],
     style: str,
+    pos: Optional[Tuple[float, float]] = None,
 ) -> Optional[str]:
     """Re-render the display file from a stored master. Returns new caption text."""
     with Image.open(master_path) as m:
@@ -169,7 +176,7 @@ def restyle_display(
     caption = None
     if place or date:
         caption = f"{place} {date}" if place and date else (place or date)
-        display = render_caption(master.copy(), place, date, style=style)
+        display = render_caption(master.copy(), place, date, style=style, pos=pos)
     else:
         display = master
     display.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
@@ -184,6 +191,7 @@ def ingest_bytes(
     store: MediaStore,
     place_override: Optional[str] = None,
     style: str = DEFAULT_STYLE,
+    pos: Optional[Tuple[float, float]] = None,
 ) -> Tuple[str, dict]:
     """Validate, dedup, process, and store raw upload bytes.
 
@@ -223,7 +231,7 @@ def ingest_bytes(
         try:
             r = _process_image(
                 content, filepath, master_path,
-                place_override=place_override, style=style,
+                place_override=place_override, style=style, pos=pos,
             )
             width, height = r["width"], r["height"]
             size_bytes, caption = r["size_bytes"], r["caption"]
@@ -261,6 +269,8 @@ def ingest_bytes(
         master_filename=master_filename,
         caption_place=place,
         caption_date=date,
+        caption_pos_x=pos[0] if pos else None,
+        caption_pos_y=pos[1] if pos else None,
     )
     logger.info(f"Ingested {media_type}: {original_name} -> {filename}")
     return "added", item

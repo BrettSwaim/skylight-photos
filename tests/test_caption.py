@@ -84,6 +84,68 @@ def test_each_style_renders_date_only():
         assert _has_bright_pixels(out, (0, 500, 1000, 750)), f"{style} date-only drew nothing"
 
 
+def _bright_bbox(img):
+    """Bounding box of near-white caption pixels, or None."""
+    from PIL import Image as _I
+    w, h = img.size
+    mask = _I.new("L", img.size, 0)
+    md = mask.load()
+    px = img.load()
+    for yy in range(0, h, 2):
+        for xx in range(0, w, 2):
+            p = px[xx, yy]
+            if p[0] > 230 and p[1] > 230 and p[2] > 230:
+                md[xx, yy] = 255
+    return mask.getbbox()
+
+
+def test_position_moves_caption_up():
+    # caption near top vs default bottom → bright pixels appear higher
+    img_top = render_caption(Image.new("RGB", (1000, 800), (30, 30, 30)),
+                             "Orvieto, Italy", "07/19/2026", style="pill", pos=(0.5, 0.1))
+    bbox = _bright_bbox(img_top)
+    assert bbox is not None
+    # top of bright region should be in the upper half
+    assert bbox[1] < 400, f"caption not near top: {bbox}"
+
+
+def test_position_clamps_at_edges():
+    # pos (0,0) and (1,1) must keep the whole caption on-image (no crash, in-bounds)
+    for p in [(0.0, 0.0), (1.0, 1.0)]:
+        img = render_caption(Image.new("RGB", (1000, 800), (30, 30, 30)),
+                             "Orvieto, Italy", "07/19/2026", style="pill", pos=p)
+        bbox = _bright_bbox(img)
+        assert bbox is not None
+        assert bbox[0] >= 0 and bbox[1] >= 0
+        assert bbox[2] <= 1000 and bbox[3] <= 800, f"caption off-image: {bbox}"
+
+
+def test_restyle_preserves_position():
+    import tempfile
+    from backend.ingest import ingest_bytes, restyle_display
+
+    with tempfile.TemporaryDirectory() as td:
+        from backend.media import MediaStore
+        td = Path(td)
+        img = Image.new("RGB", (1000, 800), (0, 0, 0))
+        exif = Image.Exif(); exif[0x0132] = "2026:07:19 14:00:00"
+        buf = io.BytesIO(); img.save(buf, "JPEG", exif=exif)
+        store = MediaStore(td)
+        _, item = ingest_bytes(
+            content=buf.getvalue(), content_type="image/jpeg",
+            original_name="p.jpg", uploads_dir=td, store=store,
+            place_override="Orvieto, Italy", style="pill", pos=(0.5, 0.15),
+        )
+        assert item["caption_pos_x"] == 0.5 and item["caption_pos_y"] == 0.15
+        # restyle at the same stored pos keeps caption near top
+        restyle_display(td / item["master_filename"], td / item["filename"],
+                        item["caption_place"], item["caption_date"], "script",
+                        (item["caption_pos_x"], item["caption_pos_y"]))
+        disp = Image.open(td / item["filename"]).convert("RGB")
+        bbox = _bright_bbox(disp)
+        assert bbox is not None and bbox[1] < 400, f"restyle lost position: {bbox}"
+
+
 def test_unknown_style_falls_back():
     img = Image.new("RGB", (1000, 750), (40, 40, 40))
     out = render_caption(img, "Orvieto, Italy", "07/19/2026", style="nonsense")

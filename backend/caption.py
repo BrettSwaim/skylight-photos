@@ -155,21 +155,39 @@ def _draw_pin(draw, x, y, size, color=(234, 67, 53)):
     draw.ellipse([cx - dr, cy - dr, cx + dr, cy + dr], fill=(255, 255, 255))
 
 
-def _draw_classic(img: Image.Image, place, date) -> Image.Image:
-    """White text with dark offset shadow, bottom-left."""
+def _place(iw, ih, bw, bh, pos, default):
+    """Clamped top-left for a bw×bh caption box whose CENTER goes at pos.
+
+    pos is normalized (px, py) in [0,1]; None → the style's default anchor.
+    """
+    if pos is None:
+        return default
+    px, py = pos
+    x = int(px * iw - bw / 2)
+    y = int(py * ih - bh / 2)
+    x = max(0, min(x, iw - bw))
+    y = max(0, min(y, ih - bh))
+    return x, y
+
+
+def _draw_classic(img: Image.Image, place, date, pos=None) -> Image.Image:
+    """White text with dark offset shadow."""
     text = _one_line(place, date)
     draw = ImageDraw.Draw(img)
     size = max(16, int(img.height * 0.035))
     font = _load_font(size)
     pad = int(size * 0.8)
-    x, y = pad, img.height - size - pad
+    bw = int(draw.textlength(text, font=font))
+    bh = int(size * 1.3)
+    x, y = _place(img.width, img.height, bw, bh, pos,
+                  (pad, img.height - size - pad))
     off = max(1, size // 14)
     draw.text((x + off, y + off), text, font=font, fill=(0, 0, 0))
     draw.text((x, y), text, font=font, fill=(255, 255, 255))
     return img
 
 
-def _draw_pill(img: Image.Image, place, date) -> Image.Image:
+def _draw_pill(img: Image.Image, place, date, pos=None) -> Image.Image:
     """White rounded sticker with red map pin — Instagram location tag."""
     line1 = place or date
     line2 = date if place else None  # if only date, it's line1
@@ -186,8 +204,9 @@ def _draw_pill(img: Image.Image, place, date) -> Image.Image:
     two = line2 is not None
     pill_h = int(size * (2.6 if two else 1.9))
     pill_w = int(pin + gap + max(w1, w2) + pad * 2 + size * 0.4)
-    x = int(img.height * 0.028)
-    y = img.height - pill_h - x
+    margin = int(img.height * 0.028)
+    x, y = _place(img.width, img.height, pill_w, pill_h, pos,
+                  (margin, img.height - pill_h - margin))
     d.rounded_rectangle(
         [x, y, x + pill_w, y + pill_h], radius=pill_h // 2, fill=(255, 255, 255, 235)
     )
@@ -205,15 +224,17 @@ def _draw_pill(img: Image.Image, place, date) -> Image.Image:
     return img.convert("RGB")
 
 
-def _draw_banner(img: Image.Image, place, date) -> Image.Image:
-    """Semi-transparent dark strip: place left, date right."""
+def _draw_banner(img: Image.Image, place, date, pos=None) -> Image.Image:
+    """Semi-transparent full-width strip: place left, date right. pos moves it vertically."""
     size = int(img.height * 0.032)
     f = _load_font(size)
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(overlay)
     bar_h = int(size * 2.4)
-    y = img.height - bar_h
-    d.rectangle([0, y, img.width, img.height], fill=(0, 0, 0, 150))
+    # full-width: only vertical position matters
+    _, y = _place(img.width, img.height, img.width, bar_h, pos,
+                  (0, img.height - bar_h))
+    d.rectangle([0, y, img.width, y + bar_h], fill=(0, 0, 0, 150))
     pad = int(size * 0.9)
     ty = y + (bar_h - size) // 2
     if place:
@@ -230,16 +251,20 @@ def _draw_banner(img: Image.Image, place, date) -> Image.Image:
     return img.convert("RGB")
 
 
-def _draw_script(img: Image.Image, place, date) -> Image.Image:
+def _draw_script(img: Image.Image, place, date, pos=None) -> Image.Image:
     """Large handwritten place with blurred drop shadow, small date beneath."""
     line1 = place or date
     line2 = date if place else None
     size = int(img.height * 0.085)
     f = _load_script_font(size)
     f2 = _load_font(int(size * 0.28))
+    measure = ImageDraw.Draw(img)
+    w1 = int(measure.textlength(line1, font=f))
+    bw = max(w1, int(size * 0.25) + (int(measure.textlength(line2, font=f2)) if line2 else 0))
+    bh = int(size * 1.45) if line2 else int(size * 1.1)
     pad = int(img.height * 0.03)
-    x = pad + int(size * 0.2)
-    y = img.height - int(size * 1.45)
+    x, y = _place(img.width, img.height, bw, bh, pos,
+                  (pad + int(size * 0.2), img.height - int(size * 1.45)))
 
     shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
@@ -265,11 +290,15 @@ _RENDERERS = {
 
 
 def render_caption(
-    img: Image.Image, place: Optional[str], date: Optional[str], style: str = DEFAULT_STYLE
+    img: Image.Image,
+    place: Optional[str],
+    date: Optional[str],
+    style: str = DEFAULT_STYLE,
+    pos: Optional[Tuple[float, float]] = None,
 ) -> Image.Image:
-    """Draw the caption in the chosen style. Unknown style falls back to default."""
+    """Draw the caption in the chosen style at pos. Unknown style falls back."""
     renderer = _RENDERERS.get(style, _RENDERERS[DEFAULT_STYLE])
-    return renderer(img, place, date)
+    return renderer(img, place, date, pos)
 
 
 def draw_caption(img: Image.Image, text: str) -> Image.Image:

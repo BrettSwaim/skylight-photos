@@ -84,10 +84,13 @@ async def restyle_media(
     if not master_path.exists():
         raise HTTPException(status_code=409, detail="Master file missing on disk")
 
+    px, py = item.get("caption_pos_x"), item.get("caption_pos_y")
+    pos = (px, py) if px is not None and py is not None else None
+
     dest = uploads / item["filename"]
     caption = restyle_display(
         master_path, dest,
-        item.get("caption_place"), item.get("caption_date"), chosen,
+        item.get("caption_place"), item.get("caption_date"), chosen, pos,
     )
     updated = store.update(
         media_id, caption=caption, caption_style=chosen if caption else None

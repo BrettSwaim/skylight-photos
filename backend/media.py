@@ -40,7 +40,9 @@ class MediaStore:
             caption_style: Optional[str] = None,
             master_filename: Optional[str] = None,
             caption_place: Optional[str] = None,
-            caption_date: Optional[str] = None) -> dict:
+            caption_date: Optional[str] = None,
+            caption_pos_x: Optional[float] = None,
+            caption_pos_y: Optional[float] = None) -> dict:
         """Add a media item and return its metadata."""
         item = {
             "id": uuid4().hex[:12],
@@ -57,6 +59,8 @@ class MediaStore:
             "master_filename": master_filename,
             "caption_place": caption_place,
             "caption_date": caption_date,
+            "caption_pos_x": caption_pos_x,
+            "caption_pos_y": caption_pos_y,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
         }
         with self._lock:
