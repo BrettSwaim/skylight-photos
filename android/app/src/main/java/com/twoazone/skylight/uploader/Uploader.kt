@@ -22,6 +22,8 @@ class UploadJob(val uri: Uri) {
     var progress: Int = 0
     var message: String = ""
     var attempts: Int = 0
+    var posX: Float? = null
+    var posY: Float? = null
 }
 
 /**
@@ -81,6 +83,8 @@ class Uploader(
                 mimeType = job.mime,
                 contentLength = job.size,
                 style = style,
+                posX = job.posX,
+                posY = job.posY,
                 streamFactory = { openOriginal(job.uri) },
                 onProgress = { pct ->
                     if (pct != job.progress) {

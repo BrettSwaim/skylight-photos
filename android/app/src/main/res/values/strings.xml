@@ -20,8 +20,11 @@
     <string name="style_banner">▬ Banner</string>
     <string name="style_script">✍ Script</string>
     <string name="preview">Preview</string>
-    <string name="preview_title">Caption preview</string>
-    <string name="preview_use">Use this style</string>
+    <string name="preview_title">Position caption</string>
+    <string name="preview_next">Next</string>
+    <string name="preview_done">Done</string>
+    <string name="preview_here">📍 drag me</string>
+    <string name="preview_drag_hint">Drag the photo to move the caption</string>
     <string name="preview_failed">Preview unavailable</string>
     <string name="on_the_frame">On the Frame</string>
     <string name="manage_title">On the Frame</string>

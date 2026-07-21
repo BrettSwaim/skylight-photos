@@ -31,6 +31,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var previewBtn: Button
     private lateinit var adapter: GridAdapter
 
+    // per-photo caption positions returned from the preview screen
+    private var posUris = ArrayList<String>()
+    private var posVals = ArrayList<String>()
+
+    private val previewLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { res ->
+        if (res.resultCode == RESULT_OK) {
+            posUris = res.data?.getStringArrayListExtra(PreviewActivity.RESULT_POS_URIS)
+                ?: arrayListOf()
+            posVals = res.data?.getStringArrayListExtra(PreviewActivity.RESULT_POS_VALS)
+                ?: arrayListOf()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -74,8 +89,8 @@ class MainActivity : AppCompatActivity() {
             if (uris.isEmpty()) return@setOnClickListener
             ensurePin {
                 val i = Intent(this, PreviewActivity::class.java)
-                i.putExtra(PreviewActivity.EXTRA_URI, uris.first())
-                startActivity(i)
+                i.putParcelableArrayListExtra(PreviewActivity.EXTRA_URIS, uris)
+                previewLauncher.launch(i)
             }
         }
 
@@ -117,6 +132,8 @@ class MainActivity : AppCompatActivity() {
     private fun startUpload(uris: ArrayList<Uri>) {
         val i = Intent(this, UploadActivity::class.java)
         i.putParcelableArrayListExtra(UploadActivity.EXTRA_URIS, uris)
+        i.putStringArrayListExtra(UploadActivity.EXTRA_POS_URIS, posUris)
+        i.putStringArrayListExtra(UploadActivity.EXTRA_POS_VALS, posVals)
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(i)
     }

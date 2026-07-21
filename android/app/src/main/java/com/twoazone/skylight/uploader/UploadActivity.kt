@@ -16,6 +16,8 @@ class UploadActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_URIS = "uris"
+        const val EXTRA_POS_URIS = "pos_uris"
+        const val EXTRA_POS_VALS = "pos_vals"
     }
 
     private lateinit var uploader: Uploader
@@ -61,7 +63,23 @@ class UploadActivity : AppCompatActivity() {
             },
         )
 
-        jobs.addAll(uris.map { UploadJob(it) })
+        // Per-photo caption positions from the preview screen (uri -> "x,y")
+        val posUris = intent.getStringArrayListExtra(EXTRA_POS_URIS) ?: arrayListOf()
+        val posVals = intent.getStringArrayListExtra(EXTRA_POS_VALS) ?: arrayListOf()
+        val posMap = HashMap<String, FloatArray>()
+        for (i in posUris.indices) {
+            val parts = posVals.getOrNull(i)?.split(",") ?: continue
+            if (parts.size == 2) {
+                val x = parts[0].toFloatOrNull(); val y = parts[1].toFloatOrNull()
+                if (x != null && y != null) posMap[posUris[i]] = floatArrayOf(x, y)
+            }
+        }
+
+        jobs.addAll(uris.map { uri ->
+            UploadJob(uri).apply {
+                posMap[uri.toString()]?.let { posX = it[0]; posY = it[1] }
+            }
+        })
         adapter.notifyDataSetChanged()
         uploader.enqueue(jobs)
 

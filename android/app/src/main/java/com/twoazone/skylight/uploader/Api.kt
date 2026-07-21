@@ -49,6 +49,8 @@ object Api {
         mimeType: String,
         contentLength: Long,
         style: String,
+        posX: Float?,
+        posY: Float?,
         streamFactory: () -> InputStream,
         onProgress: (Int) -> Unit,
     ): UploadResult {
@@ -77,6 +79,12 @@ object Api {
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, fileBody)
             .addFormDataPart("style", style)
+            .apply {
+                if (posX != null && posY != null) {
+                    addFormDataPart("pos_x", posX.toString())
+                    addFormDataPart("pos_y", posY.toString())
+                }
+            }
             .build()
 
         val req = Request.Builder()
@@ -108,7 +116,10 @@ object Api {
     }
 
     /** Render a caption preview server-side. Returns JPEG bytes or null on failure. */
-    fun preview(pin: String, jpeg: ByteArray, location: String, style: String): ByteArray? {
+    fun preview(
+        pin: String, jpeg: ByteArray, location: String, style: String,
+        posX: Float? = null, posY: Float? = null,
+    ): ByteArray? {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart(
@@ -116,7 +127,13 @@ object Api {
                 jpeg.toRequestBody("image/jpeg".toMediaType())
             )
             .addFormDataPart("style", style)
-            .apply { if (location.isNotBlank()) addFormDataPart("location", location) }
+            .apply {
+                if (location.isNotBlank()) addFormDataPart("location", location)
+                if (posX != null && posY != null) {
+                    addFormDataPart("pos_x", posX.toString())
+                    addFormDataPart("pos_y", posY.toString())
+                }
+            }
             .build()
         val req = Request.Builder()
             .url("$BASE/preview")
