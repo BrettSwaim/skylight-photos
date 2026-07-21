@@ -16,4 +16,7 @@
     <string name="retry_all">Retry all</string>
     <string name="summary_fmt">%1$d of %2$d uploaded · %3$d failed</string>
     <string name="uploaded_badge">✓ uploaded</string>
+    <string name="style_pill">📍 Pill</string>
+    <string name="style_banner">▬ Banner</string>
+    <string name="style_script">✍ Script</string>
 </resources>

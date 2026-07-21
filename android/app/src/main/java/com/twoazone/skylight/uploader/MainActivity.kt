@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        setupStyleChips()
         requestPermissionsThenLoad()
     }
 
@@ -162,6 +163,33 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 100) {
             if (grantResults.any { it == PackageManager.PERMISSION_GRANTED }) loadMedia()
             else Toast.makeText(this, R.string.need_permission, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun setupStyleChips() {
+        val pill = findViewById<Button>(R.id.style_pill)
+        val banner = findViewById<Button>(R.id.style_banner)
+        val script = findViewById<Button>(R.id.style_script)
+        val map = mapOf("pill" to pill, "banner" to banner, "script" to script)
+
+        fun highlight(active: String) {
+            map.forEach { (name, btn) ->
+                if (name == active) {
+                    btn.setBackgroundColor(0xFF4A9EFF.toInt())
+                    btn.setTextColor(0xFFFFFFFF.toInt())
+                } else {
+                    btn.setBackgroundColor(0x00000000)
+                    btn.setTextColor(0xFFE8E8E8.toInt())
+                }
+            }
+        }
+
+        highlight(Prefs.getStyle(this))
+        map.forEach { (name, btn) ->
+            btn.setOnClickListener {
+                Prefs.setStyle(this, name)
+                highlight(name)
+            }
         }
     }
 

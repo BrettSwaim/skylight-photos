@@ -33,6 +33,7 @@ class Uploader(
     private val resolver: ContentResolver,
     private val scope: CoroutineScope,
     private val pin: String,
+    private val style: String,
     private val hasMediaLocation: Boolean,
     private val onUpdate: (UploadJob) -> Unit,
     private val onBadPin: () -> Unit,
@@ -79,6 +80,7 @@ class Uploader(
                 fileName = job.name,
                 mimeType = job.mime,
                 contentLength = job.size,
+                style = style,
                 streamFactory = { openOriginal(job.uri) },
                 onProgress = { pct ->
                     if (pct != job.progress) {

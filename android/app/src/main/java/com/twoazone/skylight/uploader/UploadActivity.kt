@@ -53,6 +53,7 @@ class UploadActivity : AppCompatActivity() {
             resolver = contentResolver,
             scope = lifecycleScope,
             pin = Prefs.getPin(this),
+            style = Prefs.getStyle(this),
             hasMediaLocation = hasMediaLocation,
             onUpdate = { job -> onJobUpdate(job) },
             onBadPin = {

@@ -19,8 +19,8 @@ android {
         applicationId = "com.twoazone.skylight.uploader"
         minSdk = 30
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     signingConfigs {

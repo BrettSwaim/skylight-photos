@@ -48,6 +48,7 @@ object Api {
         fileName: String,
         mimeType: String,
         contentLength: Long,
+        style: String,
         streamFactory: () -> InputStream,
         onProgress: (Int) -> Unit,
     ): UploadResult {
@@ -75,6 +76,7 @@ object Api {
         val multipart = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, fileBody)
+            .addFormDataPart("style", style)
             .build()
 
         val req = Request.Builder()
