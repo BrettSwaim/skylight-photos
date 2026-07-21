@@ -59,13 +59,8 @@ def _strip_video_audio(content: bytes, dest: Path) -> int:
     return dest.stat().st_size
 
 
-def _process_image(
-    content: bytes,
-    dest: Path,
-    place_override: Optional[str] = None,
-    style: str = DEFAULT_STYLE,
-) -> Tuple[int, int, int, Optional[str]]:
-    """Process and save an image. Returns (width, height, bytes_on_disk, caption)."""
+def _orient_and_resize(content: bytes) -> Image.Image:
+    """Return a clean RGB image: EXIF-rotated and downscaled. No caption."""
     with Image.open(io.BytesIO(content)) as src:
         img = src.convert("RGB") if src.mode != "RGB" else src.copy()
 
@@ -84,25 +79,101 @@ def _process_image(
     except (AttributeError, KeyError):
         pass
 
-    width, height = img.size
-    if width > MAX_WIDTH or height > MAX_HEIGHT:
+    if img.width > MAX_WIDTH or img.height > MAX_HEIGHT:
         img.thumbnail((MAX_WIDTH, MAX_HEIGHT), Image.LANCZOS)
-        width, height = img.size
+    return img
 
-    caption = None
+
+def _caption_for(content: bytes, place_override: Optional[str]):
+    """Return (place, date, caption_text) — any of which may be None."""
+    dt, latlon = extract_exif_info(content)
+    place, date = build_caption_text(dt, latlon, place_override=place_override)
+    text = None
+    if place or date:
+        text = f"{place} {date}" if place and date else (place or date)
+    return place, date, text
+
+
+def render_preview(content: bytes, place_override: Optional[str], style: str) -> bytes:
+    """Render the exact caption onto a downscaled copy and return JPEG bytes.
+
+    Used by the preview endpoint — nothing is persisted.
+    """
+    img = _orient_and_resize(content)
+    if img.width > 1280 or img.height > 1280:
+        img.thumbnail((1280, 1280), Image.LANCZOS)
+    place, date, _ = _caption_for(content, place_override)
+    if place or date:
+        img = render_caption(img, place, date, style=style)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=JPEG_QUALITY)
+    return out.getvalue()
+
+
+def _process_image(
+    content: bytes,
+    dest: Path,
+    master_dest: Path,
+    place_override: Optional[str] = None,
+    style: str = DEFAULT_STYLE,
+) -> dict:
+    """Save clean master + captioned display file.
+
+    Returns dict: width, height, size_bytes, caption, place, date, master_saved.
+    """
+    master = _orient_and_resize(content)
+    width, height = master.size
+
+    place = date = caption = None
+    master_saved = False
     try:
-        dt, latlon = extract_exif_info(content)
-        place, date = build_caption_text(dt, latlon, place_override=place_override)
-        if place or date:
-            caption = f"{place} {date}" if place and date else (place or date)
-            img = render_caption(img, place, date, style=style)
+        place, date, caption = _caption_for(content, place_override)
+        # Persist the clean master so the display can be re-rendered later
+        master.save(master_dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+        master_saved = True
     except Exception as e:
-        logger.warning(f"Captioning failed, saving clean: {e}")
-        caption = None
+        logger.warning(f"Master/caption prep failed: {e}")
+        place = date = caption = None
 
-    img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
-    img.close()
-    return width, height, dest.stat().st_size, caption
+    display = master
+    if caption:
+        try:
+            display = render_caption(master.copy(), place, date, style=style)
+        except Exception as e:
+            logger.warning(f"Caption render failed, saving clean: {e}")
+            display = master
+            caption = None
+
+    display.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    return {
+        "width": width,
+        "height": height,
+        "size_bytes": dest.stat().st_size,
+        "caption": caption,
+        "place": place,
+        "date": date,
+        "master_saved": master_saved,
+    }
+
+
+def restyle_display(
+    master_path: Path,
+    dest: Path,
+    place: Optional[str],
+    date: Optional[str],
+    style: str,
+) -> Optional[str]:
+    """Re-render the display file from a stored master. Returns new caption text."""
+    with Image.open(master_path) as m:
+        master = m.convert("RGB")
+    caption = None
+    if place or date:
+        caption = f"{place} {date}" if place and date else (place or date)
+        display = render_caption(master.copy(), place, date, style=style)
+    else:
+        display = master
+    display.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    return caption
 
 
 def ingest_bytes(
@@ -139,18 +210,30 @@ def ingest_bytes(
     height: Optional[int] = None
     duration: Optional[float] = None
     caption: Optional[str] = None
+    master_filename: Optional[str] = None
+    place: Optional[str] = None
+    date: Optional[str] = None
 
     if content_type in IMAGE_TYPES:
         media_type = "image"
         filename = f"{uid}.jpg"
+        master_name = f"{uid}.master.jpg"
         filepath = uploads_dir / filename
+        master_path = uploads_dir / master_name
         try:
-            width, height, size_bytes, caption = _process_image(
-                content, filepath, place_override=place_override, style=style
+            r = _process_image(
+                content, filepath, master_path,
+                place_override=place_override, style=style,
             )
+            width, height = r["width"], r["height"]
+            size_bytes, caption = r["size_bytes"], r["caption"]
+            place, date = r["place"], r["date"]
+            if r["master_saved"]:
+                master_filename = master_name
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
             filepath.unlink(missing_ok=True)
+            master_path.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Failed to process image")
     else:
         media_type = "video"
@@ -175,6 +258,9 @@ def ingest_bytes(
         content_sha256=content_hash,
         caption=caption,
         caption_style=style if caption else None,
+        master_filename=master_filename,
+        caption_place=place,
+        caption_date=date,
     )
     logger.info(f"Ingested {media_type}: {original_name} -> {filename}")
     return "added", item

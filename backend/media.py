@@ -37,7 +37,10 @@ class MediaStore:
             size_bytes: int = 0, duration: Optional[float] = None,
             content_sha256: Optional[str] = None,
             caption: Optional[str] = None,
-            caption_style: Optional[str] = None) -> dict:
+            caption_style: Optional[str] = None,
+            master_filename: Optional[str] = None,
+            caption_place: Optional[str] = None,
+            caption_date: Optional[str] = None) -> dict:
         """Add a media item and return its metadata."""
         item = {
             "id": uuid4().hex[:12],
@@ -51,12 +54,25 @@ class MediaStore:
             "content_sha256": content_sha256,
             "caption": caption,
             "caption_style": caption_style,
+            "master_filename": master_filename,
+            "caption_place": caption_place,
+            "caption_date": caption_date,
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
         }
         with self._lock:
             self._media.append(item)
             self._save()
         return item
+
+    def update(self, media_id: str, **fields) -> Optional[dict]:
+        """Update fields on an item by ID and persist. Returns the item."""
+        with self._lock:
+            for item in self._media:
+                if item["id"] == media_id:
+                    item.update(fields)
+                    self._save()
+                    return item
+        return None
 
     def find_by_hash(self, content_sha256: str) -> Optional[dict]:
         """Return the first item matching this content hash, if any."""

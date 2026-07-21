@@ -5,11 +5,11 @@ from pathlib import Path
 
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Response, UploadFile
 
 from backend.config import get_config_value
 from backend.caption import DEFAULT_STYLE, STYLES
-from backend.ingest import ingest_bytes
+from backend.ingest import IMAGE_TYPES, ingest_bytes, render_preview
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,33 @@ async def upload_media(
     return {"status": "ok", "media": item}
 
 
+@router.post("/preview")
+async def preview_caption(
+    file: UploadFile = File(...),
+    x_upload_pin: str = Header(...),
+    location: Optional[str] = Form(None),
+    style: Optional[str] = Form(None),
+):
+    """Render a caption preview onto the image and return it. Saves nothing."""
+    _verify_pin(x_upload_pin)
+    if (file.content_type or "") not in IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Preview supports images only")
+
+    content = await file.read()
+    place_override = (location or "").strip()[:80] or None
+    chosen_style = (style or "").strip().lower()
+    if chosen_style not in STYLES:
+        chosen_style = DEFAULT_STYLE
+
+    try:
+        jpeg = render_preview(content, place_override, chosen_style)
+    except Exception as e:
+        logger.error(f"Preview render failed: {e}")
+        raise HTTPException(status_code=400, detail="Could not render preview")
+
+    return Response(content=jpeg, media_type="image/jpeg")
+
+
 @router.delete("/media/{media_id}")
 async def delete_media(
     media_id: str,
@@ -80,9 +107,16 @@ async def delete_media(
     if not item:
         raise HTTPException(status_code=404, detail="Media not found")
 
-    filepath = _get_uploads_dir() / item["filename"]
+    uploads = _get_uploads_dir()
+    filepath = uploads / item["filename"]
     if filepath.exists():
         filepath.unlink()
         logger.info(f"Deleted: {item['filename']}")
+
+    master = item.get("master_filename")
+    if master:
+        master_path = uploads / master
+        if master_path.exists():
+            master_path.unlink()
 
     return {"status": "ok", "deleted": item["id"]}
