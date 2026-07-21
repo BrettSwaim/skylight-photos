@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from backend.config import get_config_value
+from backend.caption import DEFAULT_STYLE, STYLES
 from backend.ingest import ingest_bytes
 
 logger = logging.getLogger(__name__)
@@ -36,12 +37,16 @@ async def upload_media(
     file: UploadFile = File(...),
     x_upload_pin: str = Header(...),
     location: Optional[str] = Form(None),
+    style: Optional[str] = Form(None),
 ):
-    """Upload a photo or video. Optional location overrides GPS for the caption."""
+    """Upload a photo or video. Optional location overrides GPS; style picks caption look."""
     _verify_pin(x_upload_pin)
     content = await file.read()
 
     place_override = (location or "").strip()[:80] or None
+    chosen_style = (style or "").strip().lower()
+    if chosen_style not in STYLES:
+        chosen_style = DEFAULT_STYLE
 
     status, item = ingest_bytes(
         content=content,
@@ -50,6 +55,7 @@ async def upload_media(
         uploads_dir=_get_uploads_dir(),
         store=_get_store(),
         place_override=place_override,
+        style=chosen_style,
     )
 
     if status == "duplicate":

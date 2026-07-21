@@ -12,7 +12,13 @@ from uuid import uuid4
 from fastapi import HTTPException
 from PIL import ExifTags, Image
 
-from backend.caption import build_caption, draw_caption, extract_exif_info
+from backend.caption import (
+    DEFAULT_STYLE,
+    build_caption,
+    build_caption_text,
+    extract_exif_info,
+    render_caption,
+)
 from backend.media import MediaStore
 
 logger = logging.getLogger(__name__)
@@ -54,7 +60,10 @@ def _strip_video_audio(content: bytes, dest: Path) -> int:
 
 
 def _process_image(
-    content: bytes, dest: Path, place_override: Optional[str] = None
+    content: bytes,
+    dest: Path,
+    place_override: Optional[str] = None,
+    style: str = DEFAULT_STYLE,
 ) -> Tuple[int, int, int, Optional[str]]:
     """Process and save an image. Returns (width, height, bytes_on_disk, caption)."""
     with Image.open(io.BytesIO(content)) as src:
@@ -83,9 +92,10 @@ def _process_image(
     caption = None
     try:
         dt, latlon = extract_exif_info(content)
-        caption = build_caption(dt, latlon, place_override=place_override)
-        if caption:
-            draw_caption(img, caption)
+        place, date = build_caption_text(dt, latlon, place_override=place_override)
+        if place or date:
+            caption = f"{place} {date}" if place and date else (place or date)
+            img = render_caption(img, place, date, style=style)
     except Exception as e:
         logger.warning(f"Captioning failed, saving clean: {e}")
         caption = None
@@ -102,6 +112,7 @@ def ingest_bytes(
     uploads_dir: Path,
     store: MediaStore,
     place_override: Optional[str] = None,
+    style: str = DEFAULT_STYLE,
 ) -> Tuple[str, dict]:
     """Validate, dedup, process, and store raw upload bytes.
 
@@ -135,7 +146,7 @@ def ingest_bytes(
         filepath = uploads_dir / filename
         try:
             width, height, size_bytes, caption = _process_image(
-                content, filepath, place_override=place_override
+                content, filepath, place_override=place_override, style=style
             )
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
@@ -163,6 +174,7 @@ def ingest_bytes(
         duration=duration,
         content_sha256=content_hash,
         caption=caption,
+        caption_style=style if caption else None,
     )
     logger.info(f"Ingested {media_type}: {original_name} -> {filename}")
     return "added", item

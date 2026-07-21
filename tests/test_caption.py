@@ -7,7 +7,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PIL import Image
-from backend.caption import _to_deg, build_caption, draw_caption, extract_exif_info
+from backend.caption import (
+    _to_deg,
+    build_caption,
+    build_caption_text,
+    draw_caption,
+    extract_exif_info,
+    render_caption,
+)
 
 
 def test_to_deg():
@@ -55,6 +62,58 @@ def test_build_caption_place_override():
     # override wins even when GPS is present
     text = build_caption(None, (43.0926, 11.7868), place_override="Custom Place")
     assert text == "Custom Place", text
+
+
+def _has_bright_pixels(img, region=None):
+    px = img.crop(region) if region else img
+    return any(p[0] > 230 and p[1] > 230 and p[2] > 230 for p in px.getdata())
+
+
+def test_each_style_renders_place_and_date():
+    for style in ("pill", "banner", "script", "classic"):
+        img = Image.new("RGB", (1000, 750), (40, 40, 40))
+        out = render_caption(img, "Orvieto, Italy", "07/19/2026", style=style)
+        assert out.size[0] >= 1000  # not blanked/broken
+        assert _has_bright_pixels(out, (0, 500, 1000, 750)), f"{style} drew nothing"
+
+
+def test_each_style_renders_date_only():
+    for style in ("pill", "banner", "script", "classic"):
+        img = Image.new("RGB", (1000, 750), (40, 40, 40))
+        out = render_caption(img, None, "07/19/2026", style=style)
+        assert _has_bright_pixels(out, (0, 500, 1000, 750)), f"{style} date-only drew nothing"
+
+
+def test_unknown_style_falls_back():
+    img = Image.new("RGB", (1000, 750), (40, 40, 40))
+    out = render_caption(img, "Orvieto, Italy", "07/19/2026", style="nonsense")
+    assert _has_bright_pixels(out, (0, 500, 1000, 750))
+
+
+def test_build_caption_text_tuple():
+    place, date = build_caption_text(datetime(2026, 7, 19), None, place_override="Orvieto")
+    assert place == "Orvieto" and date == "07/19/2026"
+
+
+def test_ingest_stores_style():
+    import tempfile
+    from backend.ingest import ingest_bytes
+    from backend.media import MediaStore
+
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        img = Image.new("RGB", (800, 600), (0, 0, 0))
+        exif = Image.Exif()
+        exif[0x0132] = "2026:07:19 14:00:00"
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", exif=exif)
+        store = MediaStore(td)
+        _, item = ingest_bytes(
+            content=buf.getvalue(), content_type="image/jpeg",
+            original_name="s.jpg", uploads_dir=td, store=store,
+            place_override="Orvieto, Italy", style="banner",
+        )
+        assert item["caption_style"] == "banner", item
 
 
 def test_ingest_place_override():

@@ -3,9 +3,10 @@
 import io
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +83,34 @@ def reverse_geocode(lat: float, lon: float) -> Optional[str]:
         return None
 
 
-def build_caption(
+STYLES = {"pill", "banner", "script", "classic"}
+DEFAULT_STYLE = "pill"
+
+_FONT_DIR = Path(__file__).resolve().parent / "fonts"
+_SCRIPT_FONT = str(_FONT_DIR / "GreatVibes-Regular.ttf")
+
+
+def build_caption_text(
     dt: Optional[datetime],
     latlon: Optional[Tuple[float, float]],
     place_override: Optional[str] = None,
-) -> Optional[str]:
-    """Compose caption text; None when there is nothing to show.
+) -> Tuple[Optional[str], Optional[str]]:
+    """Return (place, date) strings, either possibly None.
 
     place_override (user-supplied location) beats GPS when present.
     """
     place = place_override or (reverse_geocode(*latlon) if latlon else None)
     date = dt.strftime("%m/%d/%Y") if dt else None
+    return place, date
+
+
+def build_caption(
+    dt: Optional[datetime],
+    latlon: Optional[Tuple[float, float]],
+    place_override: Optional[str] = None,
+) -> Optional[str]:
+    """Compose caption text as one string; None when there is nothing to show."""
+    place, date = build_caption_text(dt, latlon, place_override)
     if place and date:
         return f"{place} {date}"
     return place or date
@@ -107,15 +125,153 @@ def _load_font(size: int):
     return ImageFont.load_default()
 
 
-def draw_caption(img: Image.Image, text: str) -> Image.Image:
-    """Draw white text with a dark offset shadow in the bottom-left corner."""
+def _load_script_font(size: int):
+    try:
+        return ImageFont.truetype(_SCRIPT_FONT, size)
+    except OSError:
+        return _load_font(size)
+
+
+def _one_line(place: Optional[str], date: Optional[str]) -> str:
+    if place and date:
+        return f"{place} {date}"
+    return place or date or ""
+
+
+def _draw_pin(draw, x, y, size, color=(234, 67, 53)):
+    """Map pin: circular head, triangular tail, white center dot."""
+    r = size // 2
+    cx, cy = x + r, y + r
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
+    draw.polygon(
+        [
+            (cx - int(r * 0.62), cy + int(r * 0.55)),
+            (cx + int(r * 0.62), cy + int(r * 0.55)),
+            (cx, y + size + int(size * 0.45)),
+        ],
+        fill=color,
+    )
+    dr = max(2, r // 2)
+    draw.ellipse([cx - dr, cy - dr, cx + dr, cy + dr], fill=(255, 255, 255))
+
+
+def _draw_classic(img: Image.Image, place, date) -> Image.Image:
+    """White text with dark offset shadow, bottom-left."""
+    text = _one_line(place, date)
     draw = ImageDraw.Draw(img)
     size = max(16, int(img.height * 0.035))
     font = _load_font(size)
     pad = int(size * 0.8)
-    x = pad
-    y = img.height - size - pad
-    offset = max(1, size // 14)
-    draw.text((x + offset, y + offset), text, font=font, fill=(0, 0, 0))
+    x, y = pad, img.height - size - pad
+    off = max(1, size // 14)
+    draw.text((x + off, y + off), text, font=font, fill=(0, 0, 0))
     draw.text((x, y), text, font=font, fill=(255, 255, 255))
     return img
+
+
+def _draw_pill(img: Image.Image, place, date) -> Image.Image:
+    """White rounded sticker with red map pin — Instagram location tag."""
+    line1 = place or date
+    line2 = date if place else None  # if only date, it's line1
+    size = int(img.height * 0.034)
+    f1 = _load_font(size)
+    f2 = _load_font(int(size * 0.82))
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(overlay)
+    pin = int(size * 0.9)
+    w1 = d.textlength(line1, font=f1)
+    w2 = d.textlength(line2, font=f2) if line2 else 0
+    pad = int(size * 0.55)
+    gap = int(size * 0.45)
+    two = line2 is not None
+    pill_h = int(size * (2.6 if two else 1.9))
+    pill_w = int(pin + gap + max(w1, w2) + pad * 2 + size * 0.4)
+    x = int(img.height * 0.028)
+    y = img.height - pill_h - x
+    d.rounded_rectangle(
+        [x, y, x + pill_w, y + pill_h], radius=pill_h // 2, fill=(255, 255, 255, 235)
+    )
+    px = x + pad
+    py = y + (pill_h - int(pin * 1.45)) // 2
+    _draw_pin(d, px, py, pin)
+    tx = px + pin + gap
+    if two:
+        d.text((tx, y + int(pill_h * 0.16)), line1, font=f1, fill=(30, 30, 30, 255))
+        d.text((tx, y + int(pill_h * 0.55)), line2, font=f2, fill=(110, 110, 110, 255))
+    else:
+        d.text((tx, y + (pill_h - size) // 2), line1, font=f1, fill=(30, 30, 30, 255))
+    img = img.convert("RGBA")
+    img.alpha_composite(overlay)
+    return img.convert("RGB")
+
+
+def _draw_banner(img: Image.Image, place, date) -> Image.Image:
+    """Semi-transparent dark strip: place left, date right."""
+    size = int(img.height * 0.032)
+    f = _load_font(size)
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(overlay)
+    bar_h = int(size * 2.4)
+    y = img.height - bar_h
+    d.rectangle([0, y, img.width, img.height], fill=(0, 0, 0, 150))
+    pad = int(size * 0.9)
+    ty = y + (bar_h - size) // 2
+    if place:
+        pin = int(size * 0.95)
+        _draw_pin(d, pad, y + (bar_h - int(pin * 1.45)) // 2, pin, color=(255, 255, 255))
+        d.text((pad + pin + int(size * 0.5), ty), place, font=f, fill=(255, 255, 255, 255))
+        if date:
+            w2 = d.textlength(date, font=f)
+            d.text((img.width - w2 - pad, ty), date, font=f, fill=(220, 220, 220, 255))
+    elif date:
+        d.text((pad, ty), date, font=f, fill=(255, 255, 255, 255))
+    img = img.convert("RGBA")
+    img.alpha_composite(overlay)
+    return img.convert("RGB")
+
+
+def _draw_script(img: Image.Image, place, date) -> Image.Image:
+    """Large handwritten place with blurred drop shadow, small date beneath."""
+    line1 = place or date
+    line2 = date if place else None
+    size = int(img.height * 0.085)
+    f = _load_script_font(size)
+    f2 = _load_font(int(size * 0.28))
+    pad = int(img.height * 0.03)
+    x = pad + int(size * 0.2)
+    y = img.height - int(size * 1.45)
+
+    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.text((x + 3, y + 3), line1, font=f, fill=(0, 0, 0, 220))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(5))
+
+    out = img.convert("RGBA")
+    out.alpha_composite(shadow)
+    d = ImageDraw.Draw(out)
+    d.text((x, y), line1, font=f, fill=(255, 255, 255, 255))
+    if line2:
+        d.text((x + int(size * 0.25), y + int(size * 1.02)), line2,
+               font=f2, fill=(235, 235, 235, 255))
+    return out.convert("RGB")
+
+
+_RENDERERS = {
+    "classic": _draw_classic,
+    "pill": _draw_pill,
+    "banner": _draw_banner,
+    "script": _draw_script,
+}
+
+
+def render_caption(
+    img: Image.Image, place: Optional[str], date: Optional[str], style: str = DEFAULT_STYLE
+) -> Image.Image:
+    """Draw the caption in the chosen style. Unknown style falls back to default."""
+    renderer = _RENDERERS.get(style, _RENDERERS[DEFAULT_STYLE])
+    return renderer(img, place, date)
+
+
+def draw_caption(img: Image.Image, text: str) -> Image.Image:
+    """Back-compat: draw a pre-composed single string in classic style."""
+    return _draw_classic(img, text, None)
