@@ -44,6 +44,22 @@ const Upload = {
             }
         });
 
+        // Caption style chips — remembered across sessions
+        this.style = localStorage.getItem('skylight_style') || 'pill';
+        const chips = document.getElementById('style-chips');
+        chips.querySelectorAll('.style-chip').forEach((chip) => {
+            if (chip.dataset.style === this.style) {
+                chips.querySelectorAll('.style-chip').forEach((c) => c.classList.remove('active'));
+                chip.classList.add('active');
+            }
+            chip.addEventListener('click', () => {
+                chips.querySelectorAll('.style-chip').forEach((c) => c.classList.remove('active'));
+                chip.classList.add('active');
+                this.style = chip.dataset.style;
+                localStorage.setItem('skylight_style', this.style);
+            });
+        });
+
         // Drag and drop
         this.dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -76,7 +92,8 @@ const Upload = {
             // Snapshot the batch location when the files are picked, so
             // editing the box later doesn't change files already queued
             const location = document.getElementById('batch-location').value.trim();
-            const job = { file, location, item: this.createQueueItem(file), attempts: 0 };
+            const job = { file, location, style: this.style,
+                          item: this.createQueueItem(file), attempts: 0 };
             this.queue.prepend(job.item.el);
             job.item.status.textContent = 'Queued';
             this.pending.push(job);
@@ -106,7 +123,7 @@ const Upload = {
             await API.uploadFile(file, (pct) => {
                 item.progress.style.width = pct + '%';
                 item.status.textContent = pct + '%';
-            }, job.location);
+            }, job.location, job.style);
             this.markDone(job, 'Done');
             Toast.success(`Uploaded ${file.name}`);
 

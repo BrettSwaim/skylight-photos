@@ -193,6 +193,39 @@ header h1 { font-size: 18px; }
 .batch-location:focus { border-color: var(--primary); }
 .batch-location::placeholder { color: var(--text-dim); }
 
+.style-picker {
+    margin-bottom: 12px;
+}
+
+.style-picker-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+}
+
+.style-chips {
+    display: flex;
+    gap: 8px;
+}
+
+.style-chip {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.style-chip.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
 .browse-files-link {
     display: block;
     width: 100%;
