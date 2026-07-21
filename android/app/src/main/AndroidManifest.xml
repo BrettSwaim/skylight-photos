@@ -39,5 +39,13 @@
         <activity
             android:name=".UploadActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".PreviewActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ManageActivity"
+            android:exported="false" />
     </application>
 </manifest>

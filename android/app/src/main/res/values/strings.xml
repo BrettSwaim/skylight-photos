@@ -19,4 +19,18 @@
     <string name="style_pill">📍 Pill</string>
     <string name="style_banner">▬ Banner</string>
     <string name="style_script">✍ Script</string>
+    <string name="preview">Preview</string>
+    <string name="preview_title">Caption preview</string>
+    <string name="preview_use">Use this style</string>
+    <string name="preview_failed">Preview unavailable</string>
+    <string name="on_the_frame">On the Frame</string>
+    <string name="manage_title">On the Frame</string>
+    <string name="manage_empty">Nothing on the frame yet</string>
+    <string name="delete">Delete</string>
+    <string name="delete_n">Delete (%1$d)</string>
+    <string name="delete_confirm">Remove these from the frame? This can\'t be undone.</string>
+    <string name="deleted_n">Deleted %1$d</string>
+    <string name="restyle">Re-style</string>
+    <string name="restyle_title">Choose a style</string>
+    <string name="restyled_n">Re-styled %1$d</string>
 </resources>

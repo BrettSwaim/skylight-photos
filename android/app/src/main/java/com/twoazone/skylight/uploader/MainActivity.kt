@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var grid: RecyclerView
     private lateinit var uploadBtn: Button
+    private lateinit var previewBtn: Button
     private lateinit var adapter: GridAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,8 +46,10 @@ class MainActivity : AppCompatActivity() {
         grid = findViewById(R.id.photo_grid)
         uploadBtn = findViewById(R.id.upload_btn)
 
+        previewBtn = findViewById(R.id.preview_btn)
         adapter = GridAdapter { count ->
             uploadBtn.isEnabled = count > 0
+            previewBtn.isEnabled = count > 0
             uploadBtn.text = if (count > 0) getString(R.string.upload_n, count)
                              else getString(R.string.upload)
         }
@@ -66,19 +69,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        previewBtn.setOnClickListener {
+            val uris = adapter.selectedUris()
+            if (uris.isEmpty()) return@setOnClickListener
+            ensurePin {
+                val i = Intent(this, PreviewActivity::class.java)
+                i.putExtra(PreviewActivity.EXTRA_URI, uris.first())
+                startActivity(i)
+            }
+        }
+
         setupStyleChips()
         requestPermissionsThenLoad()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menu.add(0, 1, 0, getString(R.string.change_pin))
+        menu.add(0, 2, 0, getString(R.string.on_the_frame))
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add(0, 1, 1, getString(R.string.change_pin))
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == 1) {
-            promptPin(force = true) {}
-            return true
+        when (item.itemId) {
+            1 -> { promptPin(force = true) {}; return true }
+            2 -> {
+                ensurePin { startActivity(Intent(this, ManageActivity::class.java)) }
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
     }

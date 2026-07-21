@@ -107,6 +107,86 @@ object Api {
         return m?.groupValues?.get(1)
     }
 
+    /** Render a caption preview server-side. Returns JPEG bytes or null on failure. */
+    fun preview(pin: String, jpeg: ByteArray, location: String, style: String): ByteArray? {
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "file", "preview.jpg",
+                jpeg.toRequestBody("image/jpeg".toMediaType())
+            )
+            .addFormDataPart("style", style)
+            .apply { if (location.isNotBlank()) addFormDataPart("location", location) }
+            .build()
+        val req = Request.Builder()
+            .url("$BASE/preview")
+            .header("X-Upload-PIN", pin)
+            .post(body)
+            .build()
+        return try {
+            client.newCall(req).execute().use { resp ->
+                if (resp.isSuccessful) resp.body?.bytes() else null
+            }
+        } catch (_: java.io.IOException) {
+            null
+        }
+    }
+
+    /** Full media list (id, filename, type, caption_style, master_filename). */
+    fun listMedia(): List<MediaItem> {
+        val req = Request.Builder().url("$BASE/media").get().build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return emptyList()
+            val body = resp.body?.string() ?: return emptyList()
+            val arr = org.json.JSONObject(body).optJSONArray("media") ?: return emptyList()
+            val out = ArrayList<MediaItem>(arr.length())
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                out.add(
+                    MediaItem(
+                        id = o.optString("id"),
+                        mediaType = o.optString("media_type"),
+                        uploadedAt = o.optString("uploaded_at"),
+                        captionStyle = o.optString("caption_style").ifEmpty { null },
+                        hasMaster = !o.isNull("master_filename") &&
+                            o.optString("master_filename").isNotEmpty(),
+                    )
+                )
+            }
+            return out
+        }
+    }
+
+    fun deleteMedia(pin: String, id: String): Boolean {
+        val req = Request.Builder()
+            .url("$BASE/media/$id")
+            .header("X-Upload-PIN", pin)
+            .delete()
+            .build()
+        return try {
+            client.newCall(req).execute().use { it.isSuccessful || it.code == 404 }
+        } catch (_: java.io.IOException) {
+            false
+        }
+    }
+
+    fun restyle(pin: String, id: String, style: String): Boolean {
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("style", style)
+            .build()
+        val req = Request.Builder()
+            .url("$BASE/media/$id/restyle")
+            .header("X-Upload-PIN", pin)
+            .post(body)
+            .build()
+        return try {
+            client.newCall(req).execute().use { it.isSuccessful }
+        } catch (_: java.io.IOException) {
+            false
+        }
+    }
+
     /** original_name of everything already on the server, for grid badges. */
     fun uploadedNames(): Set<String> {
         val req = Request.Builder().url("$BASE/media").get().build()

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="120dp"
+    android:padding="1dp">
+
+    <ImageView
+        android:id="@+id/m_thumb"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:background="#1a1a1a"
+        android:contentDescription="@null" />
+
+    <TextView
+        android:id="@+id/m_video"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="4dp"
+        android:text="🎬"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/m_style"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="4dp"
+        android:textSize="10sp"
+        android:textColor="#ffffff"
+        android:background="#994a9eff"
+        android:paddingHorizontal="4dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/m_check"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:text="✔"
+        android:textSize="16sp"
+        android:textColor="#ffffff"
+        android:background="#4a9eff"
+        android:paddingHorizontal="5dp"
+        android:visibility="gone" />
+</FrameLayout>
