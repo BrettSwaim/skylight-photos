@@ -69,12 +69,16 @@ class PreviewActivity : AppCompatActivity() {
         uris = intent.getParcelableArrayListExtra(EXTRA_URIS) ?: arrayListOf()
         if (uris.isEmpty()) { finish(); return }
 
-        // ghost chip look
+        // neutral target marker (a translucent dot) — NOT a fake caption, so it
+        // never misrepresents the selected style
         ghost.background = GradientDrawable().apply {
-            cornerRadius = 40f
-            setColor(Color.argb(235, 255, 255, 255))
+            shape = GradientDrawable.OVAL
+            setColor(Color.argb(150, 74, 158, 255))
+            setStroke(6, Color.argb(230, 255, 255, 255))
         }
-        ghost.setTextColor(Color.rgb(30, 30, 30))
+        ghost.text = "＋"
+        ghost.setTextColor(Color.WHITE)
+        ghost.textSize = 22f
 
         val styleButtons = mapOf(
             "pill" to findViewById<Button>(R.id.pv_pill),
@@ -146,7 +150,6 @@ class PreviewActivity : AppCompatActivity() {
                 val o = BitmapFactory.Options().apply { inSampleSize = 2 }
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
             }
-            ghost.text = if (location.isNotBlank()) location else getString(R.string.preview_here)
             renderExact()
         }
     }
@@ -200,7 +203,7 @@ class PreviewActivity : AppCompatActivity() {
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     dragging = true
-                    cleanBmp?.let { image.setImageBitmap(it) }  // show clean during drag
+                    // keep the real caption on screen; only show a target marker
                     ghost.visibility = View.VISIBLE
                     moveGhost(e.x, e.y)
                     true
