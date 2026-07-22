@@ -56,5 +56,33 @@ object UrlImageLoader {
         }
     }
 
-    fun evict(url: String) = cache.remove(url)
+    fun evict(url: String) {
+        cache.remove(url)
+        fullCache.remove(url)
+    }
+
+    // Larger images for the full-screen viewer (separate from the 400px grid cache)
+    private val fullCache = LruCache<String, Bitmap>(8)
+
+    fun loadFull(url: String, maxDim: Int = 1600): Bitmap? {
+        fullCache.get(url)?.let { return it }
+        return try {
+            val req = Request.Builder().url(url).get().build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val bytes = resp.body?.bytes() ?: return null
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                var sample = 1
+                val longest = maxOf(bounds.outWidth, bounds.outHeight)
+                while (longest / sample > maxDim * 2) sample *= 2
+                val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+                if (bmp != null) fullCache.put(url, bmp)
+                bmp
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

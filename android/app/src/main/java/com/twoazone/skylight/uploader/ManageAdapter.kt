@@ -15,11 +15,14 @@ import kotlinx.coroutines.withContext
 
 class ManageAdapter(
     private val onSelectionChanged: () -> Unit,
+    private val onOpen: (Int) -> Unit,
 ) : RecyclerView.Adapter<ManageAdapter.Holder>() {
 
     private val items = ArrayList<MediaItem>()
     private val selected = LinkedHashSet<String>()  // ids
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    fun items(): List<MediaItem> = items
 
     fun submit(newItems: List<MediaItem>) {
         items.clear()
@@ -29,6 +32,12 @@ class ManageAdapter(
     }
 
     fun selected(): List<MediaItem> = items.filter { selected.contains(it.id) }
+
+    private fun toggle(id: String) {
+        if (selected.contains(id)) selected.remove(id) else selected.add(id)
+        notifyDataSetChanged()
+        onSelectionChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val v = LayoutInflater.from(parent.context)
@@ -66,11 +75,19 @@ class ManageAdapter(
                 }
             }
 
+            // Tap opens the full-screen viewer UNLESS a selection is active,
+            // in which case tap continues the selection (standard gallery behavior).
             itemView.setOnClickListener {
-                if (selected.contains(item.id)) selected.remove(item.id)
-                else selected.add(item.id)
-                notifyItemChanged(bindingAdapterPosition)
-                onSelectionChanged()
+                if (selected.isNotEmpty()) {
+                    toggle(item.id)
+                } else {
+                    val pos = bindingAdapterPosition
+                    if (pos != RecyclerView.NO_POSITION) onOpen(pos)
+                }
+            }
+            itemView.setOnLongClickListener {
+                toggle(item.id)
+                true
             }
         }
     }

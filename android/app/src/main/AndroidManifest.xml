@@ -47,5 +47,10 @@
         <activity
             android:name=".ManageActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".FullScreenActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
     </application>
 </manifest>

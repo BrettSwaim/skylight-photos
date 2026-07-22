@@ -32,7 +32,10 @@ class ManageActivity : AppCompatActivity() {
         restyleBtn = findViewById(R.id.manage_restyle)
         emptyText = findViewById(R.id.manage_empty)
 
-        adapter = ManageAdapter { onSelectionChanged() }
+        adapter = ManageAdapter(
+            onSelectionChanged = { onSelectionChanged() },
+            onOpen = { pos -> openViewer(pos) },
+        )
         grid.layoutManager = GridLayoutManager(this, 3)
         grid.adapter = adapter
 
@@ -40,6 +43,28 @@ class ManageActivity : AppCompatActivity() {
         restyleBtn.setOnClickListener { chooseRestyle() }
 
         loadMedia()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // reflect edits made in the full-screen viewer
+        if (::adapter.isInitialized && adapter.items().isNotEmpty()) loadMedia()
+    }
+
+    private fun openViewer(pos: Int) {
+        val items = adapter.items()
+        if (pos !in items.indices) return
+        val i = android.content.Intent(this, FullScreenActivity::class.java)
+        i.putStringArrayListExtra(FullScreenActivity.EXTRA_IDS,
+            ArrayList(items.map { it.id }))
+        i.putStringArrayListExtra(FullScreenActivity.EXTRA_TYPES,
+            ArrayList(items.map { it.mediaType }))
+        i.putStringArrayListExtra(FullScreenActivity.EXTRA_STYLES,
+            ArrayList(items.map { it.captionStyle ?: "" }))
+        i.putExtra(FullScreenActivity.EXTRA_MASTERS,
+            BooleanArray(items.size) { items[it].hasMaster })
+        i.putExtra(FullScreenActivity.EXTRA_START, pos)
+        startActivity(i)
     }
 
     private fun loadMedia() {
